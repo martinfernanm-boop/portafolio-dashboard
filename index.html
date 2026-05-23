@@ -1,142 +1,602 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Portafolio Dashboard</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Portafolio</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;
+  --text:#e6edf3;--muted:#7d8590;--green:#3fb950;--red:#f85149;
+  --blue:#58a6ff;--yellow:#d29922;--purple:#bc8cff;--orange:#ffa657
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:72px}
+a{color:inherit;text-decoration:none}
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f1117;
-      color: #e2e8f0;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-    }
+/* NAV */
+.nav-bar{position:fixed;bottom:0;left:0;right:0;height:64px;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:200}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;color:var(--muted);font-size:.65rem;font-weight:500;border:none;background:none;transition:color .15s}
+.nav-item.active{color:var(--blue)}
+.nav-icon{font-size:1.2rem}
 
-    .container { width: 100%; max-width: 640px; }
+/* PAGES */
+.page{display:none}.page.active{display:block}
 
-    header { text-align: center; margin-bottom: 36px; }
+/* HERO */
+.hero{padding:20px 16px 12px}
+.hero-label{font-size:.72rem;color:var(--muted);font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.hero-total{font-size:2.8rem;font-weight:700;line-height:1}
+.hero-meta{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px}
+.meta-item{display:flex;flex-direction:column;gap:1px}
+.meta-label{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.meta-value{font-size:.95rem;font-weight:600}
 
-    header h1 {
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: #94a3b8;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
+/* SECTION */
+.section{padding:6px 16px 10px}
+.section-title{font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;padding-top:4px}
 
-    header .fecha { margin-top: 6px; font-size: 0.85rem; color: #475569; }
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px}
 
-    .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+/* CHART BOX */
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px}
 
-    .card {
-      background: #1e2433;
-      border: 1px solid #2d3748;
-      border-radius: 16px;
-      padding: 28px 24px;
-      transition: border-color 0.2s;
-    }
+/* POSITION ROWS */
+.pos-row{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.pos-row:last-child{border-bottom:none}
+.pos-row:hover{background:var(--surface2)}
+.pos-ticker{font-weight:700;font-size:.95rem;width:60px;flex-shrink:0}
+.pos-info{flex:1;min-width:0}
+.pos-name{font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pos-sub{font-size:.68rem;color:var(--muted);margin-top:1px}
+.pos-right{text-align:right;flex-shrink:0}
+.pos-val{font-weight:600;font-size:.93rem}
+.pos-var{font-size:.77rem}
 
-    .card:hover { border-color: #4a5568; }
-    .card.full { grid-column: 1 / -1; }
+/* STOCK DETAIL */
+.page-header{display:flex;align-items:center;gap:8px;padding:14px 16px 8px}
+.back-btn{background:none;border:none;color:var(--blue);font-size:.9rem;cursor:pointer;padding:4px 8px 4px 0;flex-shrink:0}
+.header-title{font-size:1rem;font-weight:600}
 
-    .card-label {
-      font-size: 0.75rem;
-      font-weight: 500;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #64748b;
-      margin-bottom: 12px;
-    }
+.stock-hero{padding:12px 16px 8px}
+.stock-ticker-lbl{font-size:.75rem;color:var(--muted);font-weight:600}
+.stock-name-lbl{font-size:1.25rem;font-weight:700;margin:2px 0 6px}
+.stock-price-lbl{font-size:2.2rem;font-weight:700}
+.stock-varday{font-size:.95rem;margin-top:3px}
 
-    .card-value { font-size: 2.4rem; font-weight: 700; color: #f1f5f9; line-height: 1; }
-    .card-value.positive { color: #34d399; }
-    .card-value.percent { font-size: 2rem; }
-    .card-sub { margin-top: 6px; font-size: 0.8rem; color: #475569; }
+.var-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.var-cell{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center}
+.var-period{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.var-val{font-size:.97rem;font-weight:700;margin-top:4px}
 
-    .status { text-align: center; margin-top: 32px; font-size: 0.8rem; color: #334155; }
+#tv-chart-wrap{height:380px;border-radius:12px;overflow:hidden;margin-bottom:10px}
 
-    .dot {
-      display: inline-block;
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: #34d399;
-      margin-right: 6px;
-      animation: pulse 2s infinite;
-    }
+.my-pos{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.pos-detail-row{display:flex;justify-content:space-between;align-items:center;padding:9px 16px;border-bottom:1px solid var(--border)}
+.pos-detail-row:last-child{border-bottom:none}
+.pdr-l{font-size:.78rem;color:var(--muted)}
+.pdr-r{font-size:.83rem;font-weight:500}
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
+.news-item{padding:12px 16px;border-bottom:1px solid var(--border)}
+.news-item:last-child{border-bottom:none}
+.news-title{font-size:.82rem;font-weight:500;line-height:1.4;margin-bottom:3px}
+.news-meta{font-size:.68rem;color:var(--muted)}
+.news-link:hover .news-title{color:var(--blue)}
 
-    .loading { text-align: center; color: #475569; font-size: 0.9rem; padding: 60px 0; }
-    .error-msg { text-align: center; color: #f87171; font-size: 0.9rem; padding: 60px 0; }
-  </style>
+/* INDEX ROWS */
+.idx-row{display:flex;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border)}
+.idx-row:last-child{border-bottom:none}
+.idx-left{flex:1}
+.idx-name{font-weight:600;font-size:.88rem}
+.idx-sub{font-size:.68rem;color:var(--muted);margin-top:1px}
+.idx-right{text-align:right}
+.idx-price{font-weight:600;font-size:.88rem}
+.idx-var{font-size:.8rem;margin-top:1px}
+
+/* UTILS */
+.positive{color:var(--green)}
+.negative{color:var(--red)}
+.loading{display:flex;align-items:center;justify-content:center;padding:48px 20px;color:var(--muted);font-size:.85rem;gap:10px}
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.status-bar{text-align:center;padding:8px;font-size:.72rem;color:var(--muted)}
+.live-dot{display:inline-block;width:6px;height:6px;background:var(--green);border-radius:50%;margin-right:5px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* TABS */
+.chart-tabs{display:flex;gap:4px;margin-bottom:10px}
+.ctab{padding:4px 14px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--muted);font-size:.72rem;cursor:pointer;transition:all .15s}
+.ctab.active{background:var(--blue);border-color:var(--blue);color:#fff}
+
+@media(min-width:640px){body{max-width:500px;margin:0 auto}}
+</style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>📊 Mi Portafolio</h1>
-      <div class="fecha" id="fecha">Cargando...</div>
-    </header>
-    <div id="content" class="loading">Obteniendo datos...</div>
-    <div class="status" id="status"></div>
+
+<!-- ====== HOME ====== -->
+<div id="page-home" class="page active">
+  <div class="hero">
+    <div class="hero-label">📊 Mi Portafolio</div>
+    <div class="hero-total" id="h-total">—</div>
+    <div class="hero-meta">
+      <div class="meta-item"><span class="meta-label">Ganancia</span><span class="meta-value" id="h-gp">—</span></div>
+      <div class="meta-item"><span class="meta-label">Retorno</span><span class="meta-value" id="h-ret">—</span></div>
+      <div class="meta-item"><span class="meta-label">En caja</span><span class="meta-value" id="h-caja">—</span></div>
+    </div>
   </div>
 
-  <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzf5GTt1JUrftY5sGG2I3LVbFrRHyNO4LAxlthWPvRE1FJsDUKdqev2jc6Nxik86-bh/exec';
+  <div class="section">
+    <div class="section-title">Evolución del portafolio</div>
+    <div class="chart-box"><canvas id="evo-chart" height="150"></canvas></div>
+  </div>
 
-    function fmt(n, dec = 2) {
-      return new Intl.NumberFormat('es-MX', {
-        minimumFractionDigits: dec,
-        maximumFractionDigits: dec
-      }).format(n);
+  <div class="section">
+    <div class="section-title">Composición</div>
+    <div class="chart-box"><canvas id="donut-chart" height="250"></canvas></div>
+  </div>
+
+  <div class="status-bar"><span class="live-dot"></span><span id="h-fecha">—</span></div>
+</div>
+
+<!-- ====== PORTFOLIO ====== -->
+<div id="page-portfolio" class="page">
+  <div class="hero" style="padding-top:20px">
+    <div class="hero-label">Posiciones activas</div>
+    <div style="font-size:1.6rem;font-weight:700" id="p-total">—</div>
+    <div class="hero-meta">
+      <div class="meta-item"><span class="meta-label">G/P</span><span class="meta-value" id="p-gp">—</span></div>
+      <div class="meta-item"><span class="meta-label">Retorno</span><span class="meta-value" id="p-ret">—</span></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="card" id="pos-list">
+      <div class="loading"><div class="spinner"></div>Cargando…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== STOCK DETAIL ====== -->
+<div id="page-stock" class="page">
+  <div class="page-header">
+    <button class="back-btn" onclick="goBack()">← Atrás</button>
+    <span class="header-title" id="s-header">—</span>
+  </div>
+
+  <div class="stock-hero">
+    <div class="stock-ticker-lbl" id="s-ticker">—</div>
+    <div class="stock-name-lbl" id="s-name">—</div>
+    <div class="stock-price-lbl" id="s-price">—</div>
+    <div class="stock-varday" id="s-varday">—</div>
+  </div>
+
+  <div class="section">
+    <div class="var-grid">
+      <div class="var-cell"><div class="var-period">1 día</div><div class="var-val" id="v-1d">—</div></div>
+      <div class="var-cell"><div class="var-period">1 sem</div><div class="var-val" id="v-1w">—</div></div>
+      <div class="var-cell"><div class="var-period">1 mes</div><div class="var-val" id="v-1m">—</div></div>
+      <div class="var-cell"><div class="var-period">52 sem</div><div class="var-val" id="v-52w">—</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Gráfico</div>
+    <div id="tv-chart-wrap"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Mi posición</div>
+    <div class="my-pos" id="my-pos">—</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Noticias recientes</div>
+    <div class="card" id="news-list">
+      <div class="loading"><div class="spinner"></div>Cargando noticias…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== INDICES ====== -->
+<div id="page-indices" class="page">
+  <div class="hero" style="padding-top:20px">
+    <div class="hero-label">Mercados globales</div>
+    <div style="font-size:1.1rem;font-weight:600;color:var(--muted)" id="idx-date">—</div>
+  </div>
+  <div class="section">
+    <div class="section-title">🇺🇸 Estados Unidos</div>
+    <div class="card" id="idx-us"><div class="loading"><div class="spinner"></div>Cargando…</div></div>
+  </div>
+  <div class="section">
+    <div class="section-title">🌍 Europa</div>
+    <div class="card" id="idx-eu"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">🌏 Asia & Oceanía</div>
+    <div class="card" id="idx-asia"></div>
+  </div>
+</div>
+
+<!-- ====== BOTTOM NAV ====== -->
+<nav class="nav-bar">
+  <button class="nav-item active" id="nav-home" onclick="navigate('home')">
+    <span class="nav-icon">🏠</span><span>Inicio</span>
+  </button>
+  <button class="nav-item" id="nav-portfolio" onclick="navigate('portfolio')">
+    <span class="nav-icon">📈</span><span>Portfolio</span>
+  </button>
+  <button class="nav-item" id="nav-indices" onclick="navigate('indices')">
+    <span class="nav-icon">🌐</span><span>Índices</span>
+  </button>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://s3.tradingview.com/tv.js" async></script>
+<script>
+// ── CONFIG ──────────────────────────────────────────────────
+const API = 'https://script.google.com/macros/s/AKfycbzf5GTt1JUrftY5sGG2I3LVbFrRHyNO4LAxlthWPvRE1FJsDUKdqev2jc6Nxik86-bh/exec';
+
+const TV_SYM = {
+  TSLA:'NASDAQ:TSLA', NVDA:'NASDAQ:NVDA', ASML:'NASDAQ:ASML',
+  PLTR:'NYSE:PLTR',   VOO:'AMEX:VOO',     TTWO:'NASDAQ:TTWO',
+  BLK:'NYSE:BLK',     UNH:'NYSE:UNH',     MSFT:'NASDAQ:MSFT',
+  INTU:'NASDAQ:INTU', CRWV:'NASDAQ:CRWV', SCHD:'AMEX:SCHD',
+  VPU:'AMEX:VPU',     QUINENCO:'SSE:QUINENCO'
+};
+
+const COLORS = [
+  '#58a6ff','#3fb950','#ffa657','#d29922','#bc8cff',
+  '#f85149','#79c0ff','#56d364','#ff7b72','#e3b341',
+  '#da8eff','#7ee787','#ff9f68','#6e90b8'
+];
+
+// ── STATE ────────────────────────────────────────────────────
+const cache = {};
+let curPage = 'home', prevPage = 'portfolio';
+let evoChart = null, donutChart = null, tvWidget = null;
+
+// ── UTILS ────────────────────────────────────────────────────
+const fmt = (n, d=2) => new Intl.NumberFormat('es-MX',{minimumFractionDigits:d,maximumFractionDigits:d}).format(n);
+const usd = n => '$' + fmt(n);
+
+// percentages from Apps Script are stored as decimals (0.0559 = 5.59%)
+const toPct = n => (Math.abs(n) < 2 ? n * 100 : n);
+const fmtPct = (n, sign=true) => {
+  const v = toPct(n);
+  return (sign && v >= 0 ? '+' : '') + fmt(v, 2) + '%';
+};
+const cls = n => toPct(n) >= 0 ? 'positive' : 'negative';
+
+const relTime = ts => {
+  const m = Math.floor((Date.now() - ts*1000)/60000);
+  if (m < 60) return m + 'm';
+  if (m < 1440) return Math.floor(m/60) + 'h';
+  return Math.floor(m/1440) + 'd';
+};
+
+// ── DATA ─────────────────────────────────────────────────────
+async function get(action) {
+  if (cache[action]) return cache[action];
+  const r = await fetch(`${API}?action=${action}`);
+  const d = await r.json();
+  cache[action] = d;
+  return d;
+}
+
+// ── NAVIGATION ───────────────────────────────────────────────
+function navigate(page, extra) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  prevPage = curPage;
+  curPage = page;
+  document.getElementById('page-'+page).classList.add('active');
+  const nav = document.getElementById('nav-'+page);
+  if (nav) nav.classList.add('active');
+  window.scrollTo(0,0);
+  if (page === 'home')      renderHome();
+  if (page === 'portfolio') renderPortfolio();
+  if (page === 'indices')   renderIndices();
+  if (page === 'stock')     renderStock(extra);
+}
+
+function goBack() { navigate(prevPage || 'portfolio'); }
+
+function openStock(ticker) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  prevPage = curPage;
+  curPage = 'stock';
+  document.getElementById('page-stock').classList.add('active');
+  window.scrollTo(0,0);
+  renderStock(ticker);
+}
+
+// ── HOME ─────────────────────────────────────────────────────
+async function renderHome() {
+  try {
+    const { resumen, posiciones } = await get('portafolio');
+    document.getElementById('h-total').textContent = usd(resumen.valor);
+
+    const gpEl = document.getElementById('h-gp');
+    gpEl.textContent = (resumen.ganancia >= 0 ? '+' : '') + usd(resumen.ganancia);
+    gpEl.className = 'meta-value ' + cls(resumen.ganancia);
+
+    const retEl = document.getElementById('h-ret');
+    retEl.textContent = fmtPct(resumen.retorno);
+    retEl.className = 'meta-value ' + cls(resumen.retorno);
+
+    document.getElementById('h-caja').textContent = usd(resumen.caja || 0);
+    document.getElementById('h-fecha').textContent = 'Actualizado: ' + resumen.fecha;
+
+    buildDonut(posiciones);
+    buildEvo();
+  } catch(e) { console.error('Home:', e); }
+}
+
+function buildDonut(pos) {
+  const ctx = document.getElementById('donut-chart').getContext('2d');
+  if (donutChart) donutChart.destroy();
+  const sorted = [...pos].sort((a,b)=>b.valorUSD-a.valorUSD);
+  donutChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: sorted.map(p=>p.ticker),
+      datasets:[{
+        data: sorted.map(p=>p.valorUSD),
+        backgroundColor: COLORS,
+        borderColor: '#161b22',
+        borderWidth: 2,
+        hoverOffset: 8
+      }]
+    },
+    options:{
+      responsive:true, cutout:'62%',
+      plugins:{
+        legend:{ display:true, position:'bottom', labels:{color:'#e6edf3',font:{size:11},boxWidth:12,padding:10}},
+        tooltip:{ callbacks:{
+          label: c => {
+            const total = c.dataset.data.reduce((a,b)=>a+b,0);
+            return ` ${c.label}: ${usd(c.raw)} (${fmt(c.raw/total*100,1)}%)`;
+          }
+        }}
+      }
     }
+  });
+}
 
-    function render(data) {
-      const pct = (data.retorno * 100).toFixed(2);
-      const isPositive = data.ganancia >= 0;
-      document.getElementById('fecha').textContent = 'Actualizado: ' + data.fecha;
-      document.getElementById('content').innerHTML = `
-        <div class="cards">
-          <div class="card full">
-            <div class="card-label">Valor del portafolio</div>
-            <div class="card-value">$${fmt(data.valor)}</div>
-            <div class="card-sub">MXN</div>
+async function buildEvo() {
+  try {
+    const { historial } = await get('historial');
+    if (!historial || !historial.length) return;
+    const slice = historial.slice(-60);
+    const ctx = document.getElementById('evo-chart').getContext('2d');
+    if (evoChart) evoChart.destroy();
+    const grad = ctx.createLinearGradient(0,0,0,150);
+    grad.addColorStop(0,'rgba(88,166,255,.3)');
+    grad.addColorStop(1,'rgba(88,166,255,0)');
+    evoChart = new Chart(ctx, {
+      type:'line',
+      data:{
+        labels: slice.map(h=>h.fecha),
+        datasets:[{
+          data: slice.map(h=>h.valor),
+          borderColor:'#58a6ff', borderWidth:2,
+          fill:true, backgroundColor:grad,
+          pointRadius:0, tension:.3
+        }]
+      },
+      options:{
+        responsive:true,
+        interaction:{intersect:false,mode:'index'},
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{
+            title: c => c[0].label,
+            label: c => ' ' + usd(c.raw)
+          }}
+        },
+        scales:{
+          x:{ ticks:{color:'#7d8590',maxTicksLimit:6,font:{size:10}}, grid:{color:'#21262d'}},
+          y:{ ticks:{color:'#7d8590',font:{size:10},callback:v=>'$'+fmt(v,0)}, grid:{color:'#21262d'}}
+        }
+      }
+    });
+  } catch(e) { console.error('Evo:', e); }
+}
+
+// ── PORTFOLIO ────────────────────────────────────────────────
+async function renderPortfolio() {
+  const el = document.getElementById('pos-list');
+  try {
+    const { resumen, posiciones } = await get('portafolio');
+
+    document.getElementById('p-total').textContent = usd(resumen.valor);
+    const gpEl = document.getElementById('p-gp');
+    gpEl.textContent = (resumen.ganancia>=0?'+':'')+usd(resumen.ganancia);
+    gpEl.className = 'meta-value '+cls(resumen.ganancia);
+    const retEl = document.getElementById('p-ret');
+    retEl.textContent = fmtPct(resumen.retorno);
+    retEl.className = 'meta-value '+cls(resumen.retorno);
+
+    const sorted = [...posiciones].sort((a,b)=>b.valorUSD-a.valorUSD);
+    el.innerHTML = sorted.map(p => {
+      const vd = toPct(p.varDia), rt = toPct(p.retorno);
+      const vdSign = vd>=0?'+':'', rtSign = rt>=0?'+':'';
+      return `<div class="pos-row" onclick="openStock('${p.ticker}')">
+        <div class="pos-ticker">${p.ticker}</div>
+        <div class="pos-info">
+          <div class="pos-name">${p.nombre}</div>
+          <div class="pos-sub">${p.plataforma} · ${fmt(toPct(p.peso),1)}% portafolio</div>
+        </div>
+        <div class="pos-right">
+          <div class="pos-val">${usd(p.valorUSD)}</div>
+          <div class="pos-var ${vd>=0?'positive':'negative'}">${vdSign}${fmt(vd,2)}% hoy</div>
+          <div class="pos-var ${rt>=0?'positive':'negative'}" style="font-size:.7rem">${rtSign}${fmt(rt,2)}% total</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div class="loading">Error al cargar posiciones.</div>';
+  }
+}
+
+// ── STOCK DETAIL ─────────────────────────────────────────────
+async function renderStock(ticker) {
+  ['s-header','s-ticker','s-name','s-price','s-varday'].forEach(id => {
+    document.getElementById(id).textContent = id.includes('header')||id.includes('ticker') ? ticker : '—';
+  });
+  ['v-1d','v-1w','v-1m','v-52w'].forEach(id => {
+    const el = document.getElementById(id);
+    el.textContent = '—'; el.className = 'var-val';
+  });
+  document.getElementById('news-list').innerHTML = '<div class="loading"><div class="spinner"></div>Cargando…</div>';
+
+  try {
+    const { posiciones } = await get('portafolio');
+    const p = posiciones.find(x => x.ticker === ticker);
+    if (p) {
+      document.getElementById('s-name').textContent = p.nombre;
+      document.getElementById('s-price').textContent = usd(p.precioActual);
+      const vd = toPct(p.varDia);
+      const vdEl = document.getElementById('s-varday');
+      vdEl.textContent = (vd>=0?'▲ +':'▼ ') + fmt(vd,2) + '% hoy';
+      vdEl.className = 'stock-varday ' + (vd>=0?'positive':'negative');
+
+      const d1El = document.getElementById('v-1d');
+      d1El.textContent = (vd>=0?'+':'')+fmt(vd,2)+'%';
+      d1El.className = 'var-val '+(vd>=0?'positive':'negative');
+
+      const rt = toPct(p.retorno);
+      document.getElementById('my-pos').innerHTML = [
+        ['Cantidad', fmt(p.cantidad,4)],
+        ['Precio compra', usd(p.precioCompra)],
+        ['Precio actual', usd(p.precioActual)],
+        ['Costo total', usd(p.costoUSD)],
+        ['Valor actual', usd(p.valorUSD)],
+        ['Ganancia / Pérdida', `<span class="${p.gpUSD>=0?'positive':'negative'}">${p.gpUSD>=0?'+':''}${usd(p.gpUSD)}</span>`],
+        ['Retorno total', `<span class="${rt>=0?'positive':'negative'}">${rt>=0?'+':''}${fmt(rt,2)}%</span>`],
+        ['Peso en portafolio', fmt(toPct(p.peso),1)+'%'],
+        ['Plataforma', p.plataforma],
+        ...(p.objetivo>0 ? [['Objetivo', usd(p.objetivo)]] : []),
+        ['Estado', p.status || '—']
+      ].map(([l,r]) => `<div class="pos-detail-row"><span class="pdr-l">${l}</span><span class="pdr-r">${r}</span></div>`).join('');
+    }
+  } catch(e) { console.error('Stock detail:', e); }
+
+  renderTV(ticker);
+  fetchYahoo(ticker);
+  fetchNews(ticker);
+}
+
+function renderTV(ticker) {
+  const wrap = document.getElementById('tv-chart-wrap');
+  wrap.innerHTML = '';
+  const sym = TV_SYM[ticker] || ticker;
+
+  if (window.TradingView && TradingView.widget) {
+    if (tvWidget) { try { tvWidget.remove(); } catch(e){} }
+    const cid = 'tv_' + Date.now();
+    const d = document.createElement('div');
+    d.id = cid; d.style.height = '380px';
+    wrap.appendChild(d);
+    tvWidget = new TradingView.widget({
+      autosize:true, symbol:sym, interval:'D',
+      timezone:'America/New_York', theme:'dark', style:'1',
+      locale:'es', toolbar_bg:'#161b22',
+      enable_publishing:false, hide_top_toolbar:false,
+      save_image:false, container_id:cid
+    });
+  } else {
+    wrap.innerHTML = `<div class="tradingview-widget-container" style="height:380px;width:100%">
+      <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+      {"autosize":true,"symbol":"${sym}","interval":"D","timezone":"America/New_York","theme":"dark","style":"1","locale":"es","allow_symbol_change":false,"calendar":false}
+      <\/script></div>`;
+  }
+}
+
+async function fetchYahoo(ticker) {
+  const yf = ticker === 'QUINENCO' ? 'QUINENCO.SN' : ticker;
+  try {
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${yf}?interval=1d&range=1y`);
+    const j = await r.json();
+    const closes = j?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
+    const clean = closes.filter(v=>v!=null);
+    if (clean.length < 2) return;
+    const last = clean[clean.length-1];
+    const setV = (id, pct) => {
+      const el = document.getElementById(id);
+      el.textContent = (pct>=0?'+':'')+fmt(pct,2)+'%';
+      el.className = 'var-val '+(pct>=0?'positive':'negative');
+    };
+    if (clean.length > 5)  setV('v-1w', (last/clean[clean.length-6]-1)*100);
+    if (clean.length > 21) setV('v-1m', (last/clean[clean.length-22]-1)*100);
+    setV('v-52w', (last/clean[0]-1)*100);
+  } catch(e) { console.warn('Yahoo chart:', e.message); }
+}
+
+async function fetchNews(ticker) {
+  const el = document.getElementById('news-list');
+  const yf = ticker === 'QUINENCO' ? 'QUINENCO.SN' : ticker;
+  try {
+    const r = await fetch(`https://query1.finance.yahoo.com/v1/finance/search?q=${yf}&newsCount=8&enableFuzzyQuery=false`);
+    const j = await r.json();
+    const news = j?.news || [];
+    if (!news.length) {
+      el.innerHTML = '<div class="loading">Sin noticias disponibles.</div>';
+      return;
+    }
+    el.innerHTML = news.map(n=>`
+      <a class="news-link" href="${n.link}" target="_blank" rel="noopener noreferrer">
+        <div class="news-item">
+          <div class="news-title">${n.title}</div>
+          <div class="news-meta">${n.publisher} · ${relTime(n.providerPublishTime)}</div>
+        </div>
+      </a>`).join('');
+  } catch(e) {
+    el.innerHTML = `<div class="news-item">
+      <div class="news-title" style="color:var(--muted)">No se pudieron cargar las noticias.</div>
+      <div class="news-meta"><a href="https://finance.yahoo.com/quote/${yf}/news" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div>
+    </div>`;
+  }
+}
+
+// ── INDICES ──────────────────────────────────────────────────
+async function renderIndices() {
+  try {
+    const { indices } = await get('indices');
+    document.getElementById('idx-date').textContent =
+      new Date().toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+    const groups = { us:[], eu:[], asia:[] };
+    indices.forEach(i => {
+      if (i.region.includes('EE.UU'))  groups.us.push(i);
+      else if (i.region.includes('Europa')) groups.eu.push(i);
+      else groups.asia.push(i);
+    });
+
+    for (const [key, list] of Object.entries(groups)) {
+      const el = document.getElementById('idx-'+key);
+      if (!list.length) { el.style.display='none'; continue; }
+      el.innerHTML = list.map(idx => {
+        const v = toPct(idx.varDia);
+        return `<div class="idx-row">
+          <div class="idx-left">
+            <div class="idx-name">${idx.nombre}</div>
+            <div class="idx-sub">${idx.simbolo} · ${idx.horario}</div>
           </div>
-          <div class="card">
-            <div class="card-label">Ganancia</div>
-            <div class="card-value positive">${isPositive ? '+' : ''}$${fmt(data.ganancia)}</div>
-            <div class="card-sub">desde inicio</div>
-          </div>
-          <div class="card">
-            <div class="card-label">Retorno</div>
-            <div class="card-value positive percent">${isPositive ? '+' : ''}${pct}%</div>
-            <div class="card-sub">rendimiento total</div>
+          <div class="idx-right">
+            <div class="idx-price">${fmt(idx.precio)}</div>
+            <div class="idx-var ${v>=0?'positive':'negative'}">${v>=0?'+':''}${fmt(v,2)}%</div>
           </div>
         </div>`;
-      document.getElementById('status').innerHTML = '<span class="dot"></span>Datos en vivo · Apps Script conectado';
+      }).join('');
     }
+  } catch(e) { console.error('Indices:', e); }
+}
 
-    function fetchData() {
-      fetch(SCRIPT_URL)
-        .then(r => r.json())
-        .then(data => render(data))
-        .catch(err => {
-          document.getElementById('content').innerHTML =
-            '<div class="error-msg">⚠️ No se pudo conectar con Apps Script.<br><small>' + err.message + '</small></div>';
-        });
-    }
-
-    fetchData();
-    setInterval(fetchData, 5 * 60 * 1000);
-  </script>
+// ── INIT ─────────────────────────────────────────────────────
+navigate('home');
+</script>
 </body>
-</html>
+        </html>
