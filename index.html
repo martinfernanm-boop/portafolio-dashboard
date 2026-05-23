@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portafolio Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .container { width: 100%; max-width: 640px; }
+
+    header { text-align: center; margin-bottom: 36px; }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    header .fecha { margin-top: 6px; font-size: 0.85rem; color: #475569; }
+
+    .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    .card {
+      background: #1e2433;
+      border: 1px solid #2d3748;
+      border-radius: 16px;
+      padding: 28px 24px;
+      transition: border-color 0.2s;
+    }
+
+    .card:hover { border-color: #4a5568; }
+    .card.full { grid-column: 1 / -1; }
+
+    .card-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 12px;
+    }
+
+    .card-value { font-size: 2.4rem; font-weight: 700; color: #f1f5f9; line-height: 1; }
+    .card-value.positive { color: #34d399; }
+    .card-value.percent { font-size: 2rem; }
+    .card-sub { margin-top: 6px; font-size: 0.8rem; color: #475569; }
+
+    .status { text-align: center; margin-top: 32px; font-size: 0.8rem; color: #334155; }
+
+    .dot {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #34d399;
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .loading { text-align: center; color: #475569; font-size: 0.9rem; padding: 60px 0; }
+    .error-msg { text-align: center; color: #f87171; font-size: 0.9rem; padding: 60px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📊 Mi Portafolio</h1>
+      <div class="fecha" id="fecha">Cargando...</div>
+    </header>
+    <div id="content" class="loading">Obteniendo datos...</div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzf5GTt1JUrftY5sGG2I3LVbFrRHyNO4LAxlthWPvRE1FJsDUKdqev2jc6Nxik86-bh/exec';
+
+    function fmt(n, dec = 2) {
+      return new Intl.NumberFormat('es-MX', {
+        minimumFractionDigits: dec,
+        maximumFractionDigits: dec
+      }).format(n);
+    }
+
+    function render(data) {
+      const pct = (data.retorno * 100).toFixed(2);
+      const isPositive = data.ganancia >= 0;
+      document.getElementById('fecha').textContent = 'Actualizado: ' + data.fecha;
+      document.getElementById('content').innerHTML = `
+        <div class="cards">
+          <div class="card full">
+            <div class="card-label">Valor del portafolio</div>
+            <div class="card-value">$${fmt(data.valor)}</div>
+            <div class="card-sub">MXN</div>
+          </div>
+          <div class="card">
+            <div class="card-label">Ganancia</div>
+            <div class="card-value positive">${isPositive ? '+' : ''}$${fmt(data.ganancia)}</div>
+            <div class="card-sub">desde inicio</div>
+          </div>
+          <div class="card">
+            <div class="card-label">Retorno</div>
+            <div class="card-value positive percent">${isPositive ? '+' : ''}${pct}%</div>
+            <div class="card-sub">rendimiento total</div>
+          </div>
+        </div>`;
+      document.getElementById('status').innerHTML = '<span class="dot"></span>Datos en vivo · Apps Script conectado';
+    }
+
+    function fetchData() {
+      fetch(SCRIPT_URL)
+        .then(r => r.json())
+        .then(data => render(data))
+        .catch(err => {
+          document.getElementById('content').innerHTML =
+            '<div class="error-msg">⚠️ No se pudo conectar con Apps Script.<br><small>' + err.message + '</small></div>';
+        });
+    }
+
+    fetchData();
+    setInterval(fetchData, 5 * 60 * 1000);
+  </script>
+</body>
+</html>
