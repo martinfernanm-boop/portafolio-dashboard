@@ -569,7 +569,7 @@ async function renderIndices() {
       new Date().toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
     const groups = { us:[], eu:[], asia:[] };
-    indices.forEach(i => {
+    indices.filter(i => typeof i.precio === 'number').forEach(i => {
       if (i.region.includes('EE.UU'))  groups.us.push(i);
       else if (i.region.includes('Europa')) groups.eu.push(i);
       else groups.asia.push(i);
