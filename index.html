@@ -633,29 +633,43 @@ async function renderStock(ticker){
 
 // ── FUNDAMENTALES ─────────────────────────────────────────────
 async function fetchFundamentals(ticker, cantidad){
-  if(ticker==='QUINENCO') return; // No disponible en YF
+  if(ticker==='QUINENCO'){
+    document.getElementById('fund-section').style.display='block';
+    document.getElementById('fund-grid').innerHTML='<div style="color:var(--muted);font-size:.8rem;grid-column:1/-1;padding:8px 0">Datos no disponibles para este ticker en Yahoo Finance.</div>';
+    return;
+  }
   const yf=ticker;
+  // Show loading state
+  document.getElementById('fund-section').style.display='block';
+  document.getElementById('fund-grid').innerHTML='<div class="loading" style="grid-column:1/-1"><div class="spinner"></div>Cargando…</div>';
   try {
     const modules='defaultKeyStatistics,financialData,calendarEvents,summaryDetail';
-    const j=await fetchYF(`https://query1.finance.yahoo.com/v10/finance/quoteSummary/${yf}?modules=${modules}`);
+    // Use v11/query2 — more stable than v10/query1
+    const j=await fetchYF(`https://query2.finance.yahoo.com/v11/finance/quoteSummary/${yf}?modules=${modules}&formatted=false`);
     const r=j?.quoteSummary?.result?.[0];
-    if(!r) return;
+    if(!r){
+      document.getElementById('fund-grid').innerHTML='<div style="color:var(--muted);font-size:.8rem;grid-column:1/-1;padding:8px 0">Datos fundamentales no disponibles ahora. Intenta en unos minutos.</div>';
+      return;
+    }
 
     const ks=r.defaultKeyStatistics||{};
     const fd=r.financialData||{};
     const sd=r.summaryDetail||{};
     const cal=r.calendarEvents||{};
 
+    // Helper: extract value — handles both {raw:n} (v10 formatted) and plain number (v11 formatted=false)
+    const rv = v => (v!=null && typeof v==='object') ? v.raw : v;
+
     // Fundamentales
     const fundItems=[
-      {label:'P/E (trailing)',  val: sd.trailingPE?.raw!=null   ? fmt(sd.trailingPE.raw,1)   : '—'},
-      {label:'P/E (forward)',   val: sd.forwardPE?.raw!=null    ? fmt(sd.forwardPE.raw,1)    : '—'},
-      {label:'EPS (trailing)',  val: ks.trailingEps?.raw!=null  ? '$'+fmt(ks.trailingEps.raw,2): '—'},
-      {label:'Beta',            val: ks.beta?.raw!=null         ? fmt(ks.beta.raw,2)          : '—'},
-      {label:'Market Cap',      val: sd.marketCap?.raw!=null    ? fmtBig(sd.marketCap.raw)    : '—'},
-      {label:'Margen neto',     val: fd.profitMargins?.raw!=null? fmt(fd.profitMargins.raw*100,1)+'%':'—'},
-      {label:'Recomendación',   val: fd.recommendationKey?.replace('_',' ')||'—', cls:''},
-      {label:'Precio objetivo', val: fd.targetMeanPrice?.raw!=null?'$'+fmt(fd.targetMeanPrice.raw,2):'—'},
+      {label:'P/E (trailing)',  val: rv(sd.trailingPE)!=null    ? fmt(rv(sd.trailingPE),1)    : '—'},
+      {label:'P/E (forward)',   val: rv(sd.forwardPE)!=null     ? fmt(rv(sd.forwardPE),1)     : '—'},
+      {label:'EPS (trailing)',  val: rv(ks.trailingEps)!=null   ? '$'+fmt(rv(ks.trailingEps),2): '—'},
+      {label:'Beta',            val: rv(ks.beta)!=null          ? fmt(rv(ks.beta),2)           : '—'},
+      {label:'Market Cap',      val: rv(sd.marketCap)!=null     ? fmtBig(rv(sd.marketCap))     : '—'},
+      {label:'Margen neto',     val: rv(fd.profitMargins)!=null ? fmt(rv(fd.profitMargins)*100,1)+'%':'—'},
+      {label:'Recomendación',   val: (fd.recommendationKey||'').replace('_',' ')||'—'},
+      {label:'Precio objetivo', val: rv(fd.targetMeanPrice)!=null?'$'+fmt(rv(fd.targetMeanPrice),2):'—'},
     ];
 
     const grid=document.getElementById('fund-grid');
@@ -668,14 +682,14 @@ async function fetchFundamentals(ticker, cantidad){
 
     // Dividendos y Earnings
     const rows=[];
-    const divRate=sd.dividendRate?.raw;
-    const divYield=sd.dividendYield?.raw;
-    const exDiv=sd.exDividendDate?.raw;
-    const divDate=cal.dividendDate?.raw;
+    const divRate=rv(sd.dividendRate);
+    const divYield=rv(sd.dividendYield);
+    const exDiv=rv(sd.exDividendDate);
+    const divDate=rv(cal.dividendDate);
 
     if(divRate!=null && divRate>0){
       rows.push(['Dividendo anual/acción', '$'+fmt(divRate,2)]);
-      rows.push(['Yield', fmt(divYield*100,2)+'%']);
+      if(divYield!=null) rows.push(['Yield', fmt(divYield*100,2)+'%']);
       if(cantidad>0) rows.push(['Mi pago estimado/año', '<span class="positive">$'+fmt(divRate*cantidad,2)+'</span> ('+fmt(divRate*cantidad/4,2)+'$/trim.)']);
       if(exDiv) rows.push(['Fecha ex-dividendo', fmtDate(exDiv)]);
       if(divDate) rows.push(['Próximo pago', fmtDate(divDate)]);
@@ -685,9 +699,9 @@ async function fetchFundamentals(ticker, cantidad){
 
     // Earnings
     const earningsArr=cal.earnings?.earningsDate||[];
-    const nextEarnings=earningsArr.find(e=>e.raw*1000>Date.now());
-    if(nextEarnings) rows.push(['Próximos earnings', fmtDate(nextEarnings.raw)]);
-    const epsEst=ks.forwardEps?.raw;
+    const nextEarningsRaw=earningsArr.map(e=>rv(e)).find(v=>v*1000>Date.now());
+    if(nextEarningsRaw) rows.push(['Próximos earnings', fmtDate(nextEarningsRaw)]);
+    const epsEst=rv(ks.forwardEps);
     if(epsEst!=null) rows.push(['EPS estimado', '$'+fmt(epsEst,2)]);
 
     if(rows.length){
@@ -695,7 +709,11 @@ async function fetchFundamentals(ticker, cantidad){
         <div class="div-row"><span class="div-l">${l}</span><span class="div-r">${r}</span></div>`).join('');
       document.getElementById('div-section').style.display='block';
     }
-  } catch(e){ console.warn('Fundamentals:',e.message); }
+  } catch(e){
+    console.warn('Fundamentals:',e.message);
+    document.getElementById('fund-section').style.display='block';
+    document.getElementById('fund-grid').innerHTML='<div style="color:var(--muted);font-size:.8rem;grid-column:1/-1;padding:8px 0">No se pudieron cargar los fundamentales. <a href="https://finance.yahoo.com/quote/'+ticker+'/financials" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div>';
+  }
 }
 
 function fmtBig(n){
@@ -867,7 +885,7 @@ ${posStr}`;
 }
 
 // ── AI PROVIDERS ─────────────────────────────────────────────
-const GEMINI_MODELS = ['gemini-2.0-flash','gemini-1.5-flash','gemini-1.5-flash-8b'];
+const GEMINI_MODELS = ['gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash'];
 
 async function callGemini(systemPrompt) {
   const body={
@@ -875,6 +893,7 @@ async function callGemini(systemPrompt) {
     contents:chatHistory,
     generationConfig:{temperature:0.7,maxOutputTokens:1024,topP:0.9}
   };
+  let quotaExhausted=false;
   let lastErr;
   for(const model of GEMINI_MODELS){
     try{
@@ -883,12 +902,13 @@ async function callGemini(systemPrompt) {
       const j=await r.json();
       if(j.error){
         lastErr=new Error(j.error.message);
-        if(j.error.code===429||j.error.status==='RESOURCE_EXHAUSTED') continue;
+        if(j.error.code===429||j.error.status==='RESOURCE_EXHAUSTED'){ quotaExhausted=true; continue; }
         throw lastErr;
       }
       return j?.candidates?.[0]?.content?.parts?.[0]?.text||'Sin respuesta';
     } catch(e){ lastErr=e; }
   }
+  if(quotaExhausted) throw new Error('QUOTA_EXHAUSTED');
   throw lastErr||new Error('Todos los modelos Gemini fallaron');
 }
 
@@ -939,7 +959,11 @@ Usa los datos del portafolio para personalizar tus respuestas. Si te preguntan s
     thinkEl.textContent=reply;
     thinkEl.classList.remove('thinking');
   } catch(e){
-    thinkEl.textContent='Error: '+e.message+'\n\n¿Tu API key es correcta? Puedes cambiarla con doble tap en el encabezado del chat.';
+    if(e.message==='QUOTA_EXHAUSTED'){
+      thinkEl.textContent='⚠️ Tu cuota diaria de Gemini se agotó.\n\nPuedes usar Groq gratuitamente y sin límite diario:\n1. Ve a console.groq.com y crea una cuenta\n2. Genera una API key (empieza con gsk_)\n3. Haz doble tap aquí arriba y pega tu key de Groq';
+    } else {
+      thinkEl.textContent='Error: '+e.message+'\n\n¿Tu API key es correcta? Haz doble tap en el encabezado del chat para cambiarla.';
+    }
     thinkEl.classList.remove('thinking');
     chatHistory.pop();
   }
