@@ -15,7 +15,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 a{color:inherit;text-decoration:none}
 
 /* NAV */
-.nav-bar{position:fixed;bottom:0;left:0;right:0;height:64px;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:200}
+.nav-bar{position:fixed;bottom:0;left:0;right:0;height:64px;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:300}
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;color:var(--muted);font-size:.65rem;font-weight:500;border:none;background:none;transition:color .15s}
 .nav-item.active{color:var(--blue)}
 .nav-icon{font-size:1.2rem}
@@ -131,7 +131,7 @@ a{color:inherit;text-decoration:none}
 .nf-chip.active{background:var(--blue);border-color:var(--blue);color:#fff}
 
 /* ── CHAT FAB ── */
-#chat-fab{position:fixed;bottom:76px;right:16px;width:48px;height:48px;border-radius:50%;background:var(--blue);border:none;font-size:1.3rem;cursor:pointer;box-shadow:0 4px 16px rgba(88,166,255,.4);z-index:300;transition:transform .15s}
+#chat-fab{position:fixed;bottom:80px;right:16px;width:48px;height:48px;border-radius:50%;background:var(--blue);border:none;font-size:1.3rem;cursor:pointer;box-shadow:0 4px 16px rgba(88,166,255,.4);z-index:310;transition:transform .15s}
 #chat-fab:hover{transform:scale(1.08)}
 #chat-fab.open{background:var(--surface2)}
 
@@ -141,7 +141,7 @@ a{color:inherit;text-decoration:none}
   height:calc(100vh - 64px);
   background:var(--bg);
   display:flex;flex-direction:column;
-  z-index:250;
+  z-index:280;
   transform:translateY(100%);
   transition:transform .25s cubic-bezier(.4,0,.2,1);
 }
@@ -344,16 +344,18 @@ a{color:inherit;text-decoration:none}
 <div id="chat-panel">
   <div class="chat-header">
     <div class="chat-header-title">
-      🤖 <span>Asistente IA <span style="font-size:.7rem;color:var(--muted);font-weight:400">· Gemini Flash</span></span>
+      🤖 <span>Asistente IA <span style="font-size:.7rem;color:var(--muted);font-weight:400">· IA</span></span>
     </div>
     <button class="chat-close" onclick="toggleChat()">✕</button>
   </div>
 
   <!-- Setup: pedir API key -->
   <div id="api-key-setup">
-    <p>Para activar el asistente necesitas una API key de <a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a> (gratis, sin tarjeta de crédito).</p>
+    <p>Para activar el asistente necesitas una API key gratuita:</p>
+    <p>• <a href="https://console.groq.com" target="_blank">Groq</a> (recomendado — clave empieza con <code>gsk_</code>)</p>
+    <p>• <a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a> — Gemini (clave empieza con <code>AIza</code>)</p>
     <div class="key-input-row">
-      <input id="gemini-key-input" type="password" placeholder="AIza…">
+      <input id="gemini-key-input" type="password" placeholder="gsk_… o AIza…">
       <button class="btn-save" onclick="saveGeminiKey()">Guardar</button>
     </div>
     <p class="api-note">Tu clave se guarda solo en este navegador y nunca sale de tu dispositivo.</p>
@@ -400,7 +402,8 @@ const COLORS = ['#58a6ff','#3fb950','#ffa657','#d29922','#bc8cff','#f85149','#79
 const SECTOR_COLORS = {'Tecnología':'#58a6ff','Consumo discr.':'#ffa657','Entretenimiento':'#bc8cff','Finanzas':'#3fb950','Salud':'#f85149','ETF diversif.':'#d29922','ETF dividendos':'#79c0ff','ETF utilities':'#56d364','Industrial':'#e3b341','Otros':'#7d8590'};
 
 // ── STATE ─────────────────────────────────────────────────────
-const cache = {};
+const cache = {}, cacheTs = {};
+const CACHE_TTL = 15*60*1000; // 15 min
 let curPage='home', prevPage='portfolio';
 let evoChart=null, donutChart=null, tvWidget=null;
 let donutMode='ticker', pfMode='pct';
@@ -431,11 +434,13 @@ async function fetchYF(url) {
 }
 
 // ── DATA ──────────────────────────────────────────────────────
-async function get(action) {
-  if (cache[action]) return cache[action];
-  const r = await fetch(`${API}?action=${action}`);
+async function get(action, force=false) {
+  const now = Date.now();
+  if (!force && cache[action] && (now - cacheTs[action]) < CACHE_TTL) return cache[action];
+  const r = await fetch(`${API}?action=${action}&_t=${now}`);
   const d = await r.json();
   cache[action] = d;
+  cacheTs[action] = now;
   return d;
 }
 
@@ -535,7 +540,7 @@ async function buildEvo(){
     if(evoChart) evoChart.destroy();
     const grad=ctx.createLinearGradient(0,0,0,150);
     grad.addColorStop(0,'rgba(88,166,255,.3)'); grad.addColorStop(1,'rgba(88,166,255,0)');
-    evoChart=new Chart(ctx,{type:'line',data:{labels:slice.map(h=>h.fecha),datasets:[{data:slice.map(h=>h.valor),borderColor:'#58a6ff',borderWidth:2,fill:true,backgroundColor:grad,pointRadius:0,tension:.3}]},
+    evoChart=new Chart(ctx,{type:'line',data:{labels:slice.map(h=>{ const d=new Date(h.fecha); return isNaN(d.getTime())?String(h.fecha).slice(0,7):d.toLocaleDateString('es-CL',{month:'short',year:'2-digit'}); }),datasets:[{data:slice.map(h=>h.valor),borderColor:'#58a6ff',borderWidth:2,fill:true,backgroundColor:grad,pointRadius:0,tension:.3}]},
       options:{responsive:true,interaction:{intersect:false,mode:'index'},plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>c[0].label,label:c=>' '+usd(c.raw)}}},
         scales:{x:{ticks:{color:'#7d8590',maxTicksLimit:6,font:{size:10}},grid:{color:'#21262d'}},y:{ticks:{color:'#7d8590',font:{size:10},callback:v=>'$'+fmt(v,0)},grid:{color:'#21262d'}}}}});
   } catch(e){ console.error('Evo:',e); }
@@ -819,7 +824,7 @@ function initChat(){
 
 function saveGeminiKey(){
   const val=document.getElementById('gemini-key-input').value.trim();
-  if(!val.startsWith('AIza')){ alert('La API key debe comenzar con "AIza"'); return; }
+  if(!val.startsWith('AIza')&&!val.startsWith('gsk_')){ alert('La API key debe comenzar con "AIza" (Gemini) o "gsk_" (Groq)'); return; }
   geminiKey=val;
   localStorage.setItem('gemini_api_key',val);
   showChatReady();
@@ -861,6 +866,47 @@ ${posStr}`;
   } catch { return ''; }
 }
 
+// ── AI PROVIDERS ─────────────────────────────────────────────
+const GEMINI_MODELS = ['gemini-2.0-flash','gemini-1.5-flash','gemini-1.5-flash-8b'];
+
+async function callGemini(systemPrompt) {
+  const body={
+    system_instruction:{parts:[{text:systemPrompt}]},
+    contents:chatHistory,
+    generationConfig:{temperature:0.7,maxOutputTokens:1024,topP:0.9}
+  };
+  let lastErr;
+  for(const model of GEMINI_MODELS){
+    try{
+      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const j=await r.json();
+      if(j.error){
+        lastErr=new Error(j.error.message);
+        if(j.error.code===429||j.error.status==='RESOURCE_EXHAUSTED') continue;
+        throw lastErr;
+      }
+      return j?.candidates?.[0]?.content?.parts?.[0]?.text||'Sin respuesta';
+    } catch(e){ lastErr=e; }
+  }
+  throw lastErr||new Error('Todos los modelos Gemini fallaron');
+}
+
+async function callGroq(systemPrompt) {
+  const messages=[
+    {role:'system',content:systemPrompt},
+    ...chatHistory.map(m=>({role:m.role==='model'?'assistant':'user',content:m.parts[0].text}))
+  ];
+  const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+geminiKey},
+    body:JSON.stringify({model:'llama-3.3-70b-versatile',messages,max_tokens:1024,temperature:0.7})
+  });
+  const j=await r.json();
+  if(j.error) throw new Error(j.error.message||JSON.stringify(j.error));
+  return j.choices?.[0]?.message?.content||'Sin respuesta';
+}
+
 async function sendChat(){
   const input=document.getElementById('chat-input');
   const msg=input.value.trim();
@@ -881,21 +927,19 @@ ${context}
 Usa los datos del portafolio para personalizar tus respuestas. Si te preguntan sobre una acción específica en el portafolio, menciona la posición del usuario.`;
 
     chatHistory.push({role:'user',parts:[{text:msg}]});
-    const body={
-      system_instruction:{parts:[{text:systemPrompt}]},
-      contents:chatHistory,
-      generationConfig:{temperature:0.7,maxOutputTokens:1024,topP:0.9}
-    };
 
-    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const j=await r.json();
-    if(j.error){ throw new Error(j.error.message); }
-    const reply=j?.candidates?.[0]?.content?.parts?.[0]?.text||'Sin respuesta';
+    let reply;
+    if(geminiKey.startsWith('gsk_')){
+      reply = await callGroq(systemPrompt);
+    } else {
+      reply = await callGemini(systemPrompt);
+    }
+
     chatHistory.push({role:'model',parts:[{text:reply}]});
     thinkEl.textContent=reply;
     thinkEl.classList.remove('thinking');
   } catch(e){
-    thinkEl.textContent='Error: '+e.message+'\n\n¿Tu API key es correcta? Puedes cambiarla recargando la página.';
+    thinkEl.textContent='Error: '+e.message+'\n\n¿Tu API key es correcta? Puedes cambiarla con doble tap en el encabezado del chat.';
     thinkEl.classList.remove('thinking');
     chatHistory.pop();
   }
@@ -910,8 +954,8 @@ function quickAsk(txt){
 
 // Cambiar API key: doble tap en el header del chat
 document.querySelector('.chat-header').addEventListener('dblclick',()=>{
-  const k=prompt('Nueva API key de Gemini (deja vacío para cancelar):');
-  if(k&&k.startsWith('AIza')){ geminiKey=k; localStorage.setItem('gemini_api_key',k); alert('API key actualizada ✓'); }
+  const k=prompt('Nueva API key (Groq: gsk_… o Gemini: AIza…). Deja vacío para cancelar:');
+  if(k&&(k.startsWith('AIza')||k.startsWith('gsk_'))){ geminiKey=k; localStorage.setItem('gemini_api_key',k); alert('API key actualizada ✓'); }
 });
 
 // ── INIT ──────────────────────────────────────────────────────
