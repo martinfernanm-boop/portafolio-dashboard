@@ -633,86 +633,65 @@ async function renderStock(ticker){
 
 // ── FUNDAMENTALES ─────────────────────────────────────────────
 async function fetchFundamentals(ticker, cantidad){
+  document.getElementById('fund-section').style.display='block';
+  document.getElementById('div-section').style.display='none';
   if(ticker==='QUINENCO'){
-    document.getElementById('fund-section').style.display='block';
-    document.getElementById('fund-grid').innerHTML='<div style="color:var(--muted);font-size:.8rem;grid-column:1/-1;padding:8px 0">Datos no disponibles para este ticker en Yahoo Finance.</div>';
+    document.getElementById('fund-grid').innerHTML='<div style="color:var(--muted);font-size:.8rem;grid-column:1/-1;padding:8px 0">Datos no disponibles para QUINENCO en Yahoo Finance.</div>';
     return;
   }
-  const yf=ticker;
-  // Show loading state
-  document.getElementById('fund-section').style.display='block';
   document.getElementById('fund-grid').innerHTML='<div class="loading" style="grid-column:1/-1"><div class="spinner"></div>Cargando…</div>';
   try {
-    const modules='defaultKeyStatistics,financialData,calendarEvents,summaryDetail';
-    // Use v11/query2 — more stable than v10/query1
-    const j=await fetchYF(`https://query2.finance.yahoo.com/v11/finance/quoteSummary/${yf}?modules=${modules}&formatted=false`);
-    const r=j?.quoteSummary?.result?.[0];
-    if(!r){
-      document.getElementById('fund-grid').innerHTML='<div style="color:var(--muted);font-size:.8rem;grid-column:1/-1;padding:8px 0">Datos fundamentales no disponibles ahora. Intenta en unos minutos.</div>';
+    // v7/quote is the most reliable YF endpoint — same one used by yahoo.com
+    const yf = ticker==='QUINENCO' ? 'QUINENCO.SN' : ticker;
+    const j = await fetchYF(`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${yf}&fields=trailingPE,forwardPE,epsTrailingTwelveMonths,epsForward,beta,marketCap,profitMargins,averageAnalystRating,targetMeanPrice,dividendRate,dividendYield,exDividendDate,earningsTimestamp`);
+    const q = j?.quoteResponse?.result?.[0];
+    if(!q){
+      document.getElementById('fund-grid').innerHTML='<div style="color:var(--muted);font-size:.8rem;grid-column:1/-1;padding:8px 0">Datos no disponibles. <a href="https://finance.yahoo.com/quote/'+ticker+'" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div>';
       return;
     }
 
-    const ks=r.defaultKeyStatistics||{};
-    const fd=r.financialData||{};
-    const sd=r.summaryDetail||{};
-    const cal=r.calendarEvents||{};
-
-    // Helper: extract value — handles both {raw:n} (v10 formatted) and plain number (v11 formatted=false)
-    const rv = v => (v!=null && typeof v==='object') ? v.raw : v;
-
-    // Fundamentales
     const fundItems=[
-      {label:'P/E (trailing)',  val: rv(sd.trailingPE)!=null    ? fmt(rv(sd.trailingPE),1)    : '—'},
-      {label:'P/E (forward)',   val: rv(sd.forwardPE)!=null     ? fmt(rv(sd.forwardPE),1)     : '—'},
-      {label:'EPS (trailing)',  val: rv(ks.trailingEps)!=null   ? '$'+fmt(rv(ks.trailingEps),2): '—'},
-      {label:'Beta',            val: rv(ks.beta)!=null          ? fmt(rv(ks.beta),2)           : '—'},
-      {label:'Market Cap',      val: rv(sd.marketCap)!=null     ? fmtBig(rv(sd.marketCap))     : '—'},
-      {label:'Margen neto',     val: rv(fd.profitMargins)!=null ? fmt(rv(fd.profitMargins)*100,1)+'%':'—'},
-      {label:'Recomendación',   val: (fd.recommendationKey||'').replace('_',' ')||'—'},
-      {label:'Precio objetivo', val: rv(fd.targetMeanPrice)!=null?'$'+fmt(rv(fd.targetMeanPrice),2):'—'},
+      {label:'P/E (trailing)',  val: q.trailingPE!=null    ? fmt(q.trailingPE,1)    : '—'},
+      {label:'P/E (forward)',   val: q.forwardPE!=null     ? fmt(q.forwardPE,1)     : '—'},
+      {label:'EPS (trailing)',  val: q.epsTrailingTwelveMonths!=null ? '$'+fmt(q.epsTrailingTwelveMonths,2) : '—'},
+      {label:'Beta',            val: q.beta!=null          ? fmt(q.beta,2)          : '—'},
+      {label:'Market Cap',      val: q.marketCap!=null     ? fmtBig(q.marketCap)    : '—'},
+      {label:'Margen neto',     val: q.profitMargins!=null ? fmt(q.profitMargins*100,1)+'%' : '—'},
+      {label:'Analistas',       val: q.averageAnalystRating||'—'},
+      {label:'Precio objetivo', val: q.targetMeanPrice!=null ? '$'+fmt(q.targetMeanPrice,2) : '—'},
     ];
 
-    const grid=document.getElementById('fund-grid');
-    grid.innerHTML=fundItems.map(f=>`
+    document.getElementById('fund-grid').innerHTML=fundItems.map(f=>`
       <div class="fund-card">
         <div class="fund-label">${f.label}</div>
         <div class="fund-val">${f.val}</div>
       </div>`).join('');
-    document.getElementById('fund-section').style.display='block';
 
     // Dividendos y Earnings
     const rows=[];
-    const divRate=rv(sd.dividendRate);
-    const divYield=rv(sd.dividendYield);
-    const exDiv=rv(sd.exDividendDate);
-    const divDate=rv(cal.dividendDate);
+    const divRate  = q.dividendRate;
+    const divYield = q.dividendYield;
+    const exDiv    = q.exDividendDate; // unix seconds
 
     if(divRate!=null && divRate>0){
       rows.push(['Dividendo anual/acción', '$'+fmt(divRate,2)]);
       if(divYield!=null) rows.push(['Yield', fmt(divYield*100,2)+'%']);
-      if(cantidad>0) rows.push(['Mi pago estimado/año', '<span class="positive">$'+fmt(divRate*cantidad,2)+'</span> ('+fmt(divRate*cantidad/4,2)+'$/trim.)']);
+      if(cantidad>0) rows.push(['Mi pago estimado/año','<span class="positive">$'+fmt(divRate*cantidad,2)+'</span> ('+fmt(divRate*cantidad/4,2)+'$/trim.)']);
       if(exDiv) rows.push(['Fecha ex-dividendo', fmtDate(exDiv)]);
-      if(divDate) rows.push(['Próximo pago', fmtDate(divDate)]);
     } else {
-      rows.push(['Dividendo', '<span style="color:var(--muted)">No paga dividendos</span>']);
+      rows.push(['Dividendo','<span style="color:var(--muted)">No paga dividendos</span>']);
     }
+    if(q.epsForward!=null) rows.push(['EPS estimado (fwd)','$'+fmt(q.epsForward,2)]);
+    const nextE=q.earningsTimestamp;
+    if(nextE && nextE*1000>Date.now()) rows.push(['Próximos earnings', fmtDate(nextE)]);
 
-    // Earnings
-    const earningsArr=cal.earnings?.earningsDate||[];
-    const nextEarningsRaw=earningsArr.map(e=>rv(e)).find(v=>v*1000>Date.now());
-    if(nextEarningsRaw) rows.push(['Próximos earnings', fmtDate(nextEarningsRaw)]);
-    const epsEst=rv(ks.forwardEps);
-    if(epsEst!=null) rows.push(['EPS estimado', '$'+fmt(epsEst,2)]);
+    document.getElementById('div-box').innerHTML=rows.map(([l,r])=>`
+      <div class="div-row"><span class="div-l">${l}</span><span class="div-r">${r}</span></div>`).join('');
+    document.getElementById('div-section').style.display='block';
 
-    if(rows.length){
-      document.getElementById('div-box').innerHTML=rows.map(([l,r])=>`
-        <div class="div-row"><span class="div-l">${l}</span><span class="div-r">${r}</span></div>`).join('');
-      document.getElementById('div-section').style.display='block';
-    }
   } catch(e){
     console.warn('Fundamentals:',e.message);
-    document.getElementById('fund-section').style.display='block';
-    document.getElementById('fund-grid').innerHTML='<div style="color:var(--muted);font-size:.8rem;grid-column:1/-1;padding:8px 0">No se pudieron cargar los fundamentales. <a href="https://finance.yahoo.com/quote/'+ticker+'/financials" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div>';
+    document.getElementById('fund-grid').innerHTML='<div style="color:var(--muted);font-size:.8rem;grid-column:1/-1;padding:8px 0">No se pudieron cargar los fundamentales. <a href="https://finance.yahoo.com/quote/'+ticker+'" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div>';
   }
 }
 
@@ -768,53 +747,104 @@ async function fetchStockNews(ticker){
 }
 
 // ── NOTICIAS PAGE ─────────────────────────────────────────────
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+async function fetchNewsFor(query, tag){
+  try {
+    // Always use proxy to avoid CORS; Yahoo Finance /v1/finance/search for news
+    const url=`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=6&enableFuzzyQuery=false`;
+    const j=await fetch('https://corsproxy.io/?url='+encodeURIComponent(url)).then(r=>r.json());
+    return (j?.news||[]).map(n=>({...n,_ticker:tag}));
+  } catch { return []; }
+}
+
 async function renderNoticias(){
   const el=document.getElementById('news-main-list');
   document.getElementById('news-date').textContent=new Date().toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'});
   if(allNewsCache.length){ buildNewsChips(); renderNewsList(allNewsCache,activeNewsFilter); return; }
   el.innerHTML='<div class="loading"><div class="spinner"></div>Cargando noticias…</div>';
-  let tickers=['TSLA','NVDA','MSFT','ASML','PLTR','BLK','UNH','INTU','CRWV'];
-  try { const {posiciones}=await get('portafolio'); tickers=posiciones.map(p=>p.ticker).filter(t=>t!=='QUINENCO'); } catch {}
-  const results=await Promise.allSettled(tickers.slice(0,8).map(async t=>{
-    const j=await fetchYF(`https://query1.finance.yahoo.com/v1/finance/search?q=${t}&newsCount=6&enableFuzzyQuery=false`);
-    return (j?.news||[]).map(n=>({...n,_ticker:t}));
-  }));
-  const seen=new Set(); allNewsCache=[];
-  results.forEach(r=>{ if(r.status==='fulfilled') r.value.forEach(n=>{ if(!seen.has(n.uuid)){seen.add(n.uuid);allNewsCache.push(n);} }); });
+
+  let tickers=['TSLA','NVDA','MSFT','ASML','PLTR','BLK','UNH','INTU'];
+  try { const {posiciones}=await get('portafolio'); tickers=posiciones.map(p=>p.ticker).filter(t=>t!=='QUINENCO').slice(0,7); } catch {}
+
+  const seen=new Set();
+  allNewsCache=[];
+
+  // 1. Macro news first (sequential, with delay)
+  const macroQueries=[
+    ['S&P 500 markets economy','🌍 Macro'],
+    ['Federal Reserve interest rates inflation','🌍 Macro'],
+    ['Wall Street earnings GDP','🌍 Macro'],
+  ];
+  for(const [q,tag] of macroQueries){
+    const items=await fetchNewsFor(q,tag);
+    items.forEach(n=>{ if(!seen.has(n.uuid)){seen.add(n.uuid);allNewsCache.push(n);} });
+    await sleep(300);
+  }
+
+  // 2. Portfolio tickers sequentially (avoid proxy rate-limit)
+  for(const t of tickers){
+    const items=await fetchNewsFor(t,t);
+    items.forEach(n=>{ if(!seen.has(n.uuid)){seen.add(n.uuid);allNewsCache.push(n);} });
+    await sleep(250);
+  }
+
   allNewsCache.sort((a,b)=>b.providerPublishTime-a.providerPublishTime);
-  buildNewsChips(); renderNewsList(allNewsCache,activeNewsFilter);
+  buildNewsChips();
+  renderNewsList(allNewsCache,activeNewsFilter);
 }
+
 function buildNewsChips(){
   const uniq=[...new Set(allNewsCache.map(n=>n._ticker))];
   document.getElementById('news-filter-chips').innerHTML=
     `<button class="nf-chip ${activeNewsFilter==='all'?'active':''}" onclick="filterNews('all')">Todos</button>`+
-    uniq.map(t=>`<button class="nf-chip ${activeNewsFilter===t?'active':''}" onclick="filterNews('${t}')">${t}</button>`).join('');
+    uniq.map(t=>`<button class="nf-chip ${activeNewsFilter===t?'active':''}" onclick="filterNews('${encodeURIComponent(t)}')">${t}</button>`).join('');
 }
 function filterNews(filter){
-  activeNewsFilter=filter; buildNewsChips(); renderNewsList(allNewsCache,filter);
+  activeNewsFilter=decodeURIComponent(filter); buildNewsChips(); renderNewsList(allNewsCache,activeNewsFilter);
 }
 function renderNewsList(news,filter){
   const el=document.getElementById('news-main-list');
   const filtered=filter==='all'?news:news.filter(n=>n._ticker===filter);
   if(!filtered.length){ el.innerHTML='<div class="loading">Sin noticias para este filtro.</div>'; return; }
-  el.innerHTML=filtered.slice(0,40).map(n=>`<a class="news-link" href="${n.link}" target="_blank" rel="noopener noreferrer"><div class="news-item"><div class="news-title"><span class="news-badge">${n._ticker}</span>${n.title}</div><div class="news-meta">${n.publisher} · ${relTime(n.providerPublishTime)}</div></div></a>`).join('');
+  el.innerHTML=filtered.slice(0,50).map(n=>`<a class="news-link" href="${n.link}" target="_blank" rel="noopener noreferrer"><div class="news-item"><div class="news-title"><span class="news-badge">${n._ticker}</span>${n.title}</div><div class="news-meta">${n.publisher} · ${relTime(n.providerPublishTime)}</div></div></a>`).join('');
 }
 
 // ── INDICES ───────────────────────────────────────────────────
+function idxRegion(idx){
+  // If Apps Script provides region field, use it; otherwise infer from nombre/simbolo
+  if(idx.region) return idx.region;
+  const s=(idx.simbolo||'').toUpperCase();
+  const n=(idx.nombre||'').toLowerCase();
+  if(/FTSE|DAX|CAC|IBEX|AEX|SMI|MIB|STOXX|OMXS|EURONEXT/.test(s)||/euro|ftse|dax|cac|ibex|london|paris|madrid|amsterdam|milán|zurich/.test(n)) return 'Europa';
+  if(/N225|HSI|SHCOMP|KOSPI|ASX|SENSEX|NIFTY|NIKKEI|STI/.test(s)||/nikkei|hang seng|china|japón|japan|asia|australia|corea|india|shanghái/.test(n)) return 'Asia';
+  return 'EE.UU'; // default: US
+}
+
 async function renderIndices(){
   try {
     const {indices}=await get('indices');
     document.getElementById('idx-date').textContent=new Date().toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     const groups={us:[],eu:[],asia:[]};
-    indices.filter(i=>typeof i.precio==='number').forEach(i=>{
-      if(i.region.includes('EE.UU')) groups.us.push(i);
-      else if(i.region.includes('Europa')) groups.eu.push(i);
-      else groups.asia.push(i);
+    indices.filter(i=>i.nombre && (typeof i.precio==='number'||typeof i.precio==='string')).forEach(i=>{
+      const region=idxRegion(i);
+      if(region.includes('Europa')) groups.eu.push(i);
+      else if(region.includes('Asia')) groups.asia.push(i);
+      else groups.us.push(i);
     });
-    for(const [key,list] of Object.entries(groups)){
-      const el=document.getElementById('idx-'+key);
-      if(!list.length){el.style.display='none';continue;}
-      el.innerHTML=list.map(idx=>{ const v=toPct(idx.varDia); return `<div class="idx-row"><div class="idx-left"><div class="idx-name">${idx.nombre}</div><div class="idx-sub">${idx.simbolo} · ${idx.horario}</div></div><div class="idx-right"><div class="idx-price">${fmt(idx.precio)}</div><div class="idx-var ${v>=0?'positive':'negative'}">${v>=0?'+':''}${fmt(v,2)}%</div></div></div>`; }).join('');
+    const sections={us:'idx-us',eu:'idx-eu',asia:'idx-asia'};
+    for(const [key,elId] of Object.entries(sections)){
+      const el=document.getElementById(elId);
+      const list=groups[key];
+      if(!list.length){ el.innerHTML='<div class="loading" style="font-size:.8rem">Sin datos disponibles.</div>'; continue; }
+      el.innerHTML=list.map(idx=>{
+        const precio=typeof idx.precio==='number'?fmt(idx.precio,2):idx.precio||'—';
+        const v=typeof idx.varDia==='number'?toPct(idx.varDia):parseFloat(idx.varDia)||0;
+        return `<div class="idx-row">
+          <div class="idx-left"><div class="idx-name">${idx.nombre}</div><div class="idx-sub">${idx.simbolo||''}</div></div>
+          <div class="idx-right"><div class="idx-price">${precio}</div><div class="idx-var ${v>=0?'positive':'negative'}">${v>=0?'+':''}${fmt(v,2)}%</div></div>
+        </div>`;
+      }).join('');
     }
   } catch(e){ console.error('Indices:',e); }
 }
