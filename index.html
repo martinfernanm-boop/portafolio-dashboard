@@ -437,11 +437,17 @@ async function fetchYF(url) {
 async function get(action, force=false) {
   const now = Date.now();
   if (!force && cache[action] && (now - cacheTs[action]) < CACHE_TTL) return cache[action];
-  const r = await fetch(`${API}?action=${action}&_t=${now}`);
-  const d = await r.json();
-  cache[action] = d;
-  cacheTs[action] = now;
-  return d;
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 30000);
+  try {
+    const r = await fetch(`${API}?action=${action}&_t=${now}`, {signal: ctrl.signal});
+    const d = await r.json();
+    cache[action] = d;
+    cacheTs[action] = now;
+    return d;
+  } finally {
+    clearTimeout(tid);
+  }
 }
 
 // ── NAVIGATION ────────────────────────────────────────────────
@@ -485,6 +491,10 @@ function switchPf(mode){
 
 // ── HOME ──────────────────────────────────────────────────────
 async function renderHome(){
+  // Show loading state immediately so user knows data is being fetched
+  const fechaEl = document.getElementById('h-fecha');
+  if (fechaEl) fechaEl.textContent = 'Cargando datos...';
+  document.getElementById('h-total').textContent = '...';
   try {
     const {resumen,posiciones} = await get('portafolio');
     lastPosiciones=posiciones;
@@ -496,10 +506,19 @@ async function renderHome(){
     retEl.textContent=fmtPct(resumen.retorno);
     retEl.className='meta-value '+cls(resumen.retorno);
     document.getElementById('h-caja').textContent=usd(resumen.caja||0);
-    document.getElementById('h-fecha').textContent='Actualizado: '+resumen.fecha;
+    if (fechaEl) fechaEl.textContent='Actualizado: '+resumen.fecha;
     buildDonut(posiciones);
     buildEvo();
-  } catch(e){ console.error('Home:',e); }
+  } catch(e){
+    console.error('Home:',e);
+    document.getElementById('h-total').textContent = '—';
+    if (fechaEl) {
+      fechaEl.textContent = 'Error al cargar. Toca para reintentar.';
+      fechaEl.style.cursor = 'pointer';
+      fechaEl.style.color = '#f78166';
+      fechaEl.onclick = () => { cache['portafolio']=null; fechaEl.style.color=''; fechaEl.onclick=null; renderHome(); };
+    }
+  }
 }
 
 function buildDonut(pos){
