@@ -338,13 +338,13 @@ a{color:inherit;text-decoration:none}
 </nav>
 
 <!-- ====== CHAT FAB ====== -->
-<button id="chat-fab" onclick="toggleChat()" title="Asistente IA">💬</button>
+<button id="chat-fab" onclick="toggleChat()" title="Warren — Asistente IA">💬</button>
 
 <!-- ====== CHAT PANEL ====== -->
 <div id="chat-panel">
   <div class="chat-header">
     <div class="chat-header-title">
-      🤖 <span>Asistente IA <span style="font-size:.7rem;color:var(--muted);font-weight:400">· IA</span></span>
+      🤖 <span>Warren <span style="font-size:.7rem;color:var(--muted);font-weight:400">· Tu asesor de inversiones</span></span>
     </div>
     <button class="chat-close" onclick="toggleChat()">✕</button>
   </div>
@@ -380,7 +380,7 @@ a{color:inherit;text-decoration:none}
 <script src="https://s3.tradingview.com/tv.js" async></script>
 <script>
 // ── CONFIG ────────────────────────────────────────────────────
-const API = 'https://script.google.com/macros/s/AKfycbzf5GTt1JUrftY5sGG2I3LVbFrRHyNO4LAxlthWPvRE1FJsDUKdqev2jc6Nxik86-bh/exec';
+const API = 'https://script.google.com/macros/s/AKfycbyvGbpkDZvipPC6F8Doxd-QsyLwwjNjt7u0Zdu0JcKqGjjPxLvTufKMzh5rA0EQqkj9IQ/exec';
 
 const TV_SYM = {
   TSLA:'NASDAQ:TSLA', NVDA:'NASDAQ:NVDA', ASML:'NASDAQ:ASML',
@@ -641,9 +641,10 @@ async function fetchFundamentals(ticker, cantidad){
   }
   document.getElementById('fund-grid').innerHTML='<div class="loading" style="grid-column:1/-1"><div class="spinner"></div>Cargando…</div>';
   try {
-    // v7/quote is the most reliable YF endpoint — same one used by yahoo.com
+    // v7/quote — always via proxy to avoid CORS; no fields filter so Yahoo returns everything
     const yf = ticker==='QUINENCO' ? 'QUINENCO.SN' : ticker;
-    const j = await fetchYF(`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${yf}&fields=trailingPE,forwardPE,epsTrailingTwelveMonths,epsForward,beta,marketCap,profitMargins,averageAnalystRating,targetMeanPrice,dividendRate,dividendYield,exDividendDate,earningsTimestamp`);
+    const yfUrl = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${yf}`;
+    const j = await fetch('https://corsproxy.io/?url='+encodeURIComponent(yfUrl)).then(r=>r.json());
     const q = j?.quoteResponse?.result?.[0];
     if(!q){
       document.getElementById('fund-grid').innerHTML='<div style="color:var(--muted);font-size:.8rem;grid-column:1/-1;padding:8px 0">Datos no disponibles. <a href="https://finance.yahoo.com/quote/'+ticker+'" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div>';
@@ -812,13 +813,17 @@ function renderNewsList(news,filter){
 
 // ── INDICES ───────────────────────────────────────────────────
 function idxRegion(idx){
-  // If Apps Script provides region field, use it; otherwise infer from nombre/simbolo
   if(idx.region) return idx.region;
   const s=(idx.simbolo||'').toUpperCase();
-  const n=(idx.nombre||'').toLowerCase();
-  if(/FTSE|DAX|CAC|IBEX|AEX|SMI|MIB|STOXX|OMXS|EURONEXT/.test(s)||/euro|ftse|dax|cac|ibex|london|paris|madrid|amsterdam|milán|zurich/.test(n)) return 'Europa';
-  if(/N225|HSI|SHCOMP|KOSPI|ASX|SENSEX|NIFTY|NIKKEI|STI/.test(s)||/nikkei|hang seng|china|japón|japan|asia|australia|corea|india|shanghái/.test(n)) return 'Asia';
-  return 'EE.UU'; // default: US
+  const n=(idx.nombre||'').toUpperCase();
+  // eToro-style futures names: GER 40, UK 100, FRA 40, EUR 50, SPA 35, ITA 40, NED 25, SWI 20
+  if(/\b(GER|UK|FRA|EUR|SPA|ITA|NED|SWI|AMS|DAX|CAC|IBEX|FTSE|AEX|SMI|MIB|STOXX|OMXS|EURONEXT)\b/.test(n)||
+     /\b(GER|UK|FRA|EUR|SPA|ITA|NED|SWI|DAX|CAC|IBEX|FTSE|AEX|SMI|MIB|STOXX)\b/.test(s)) return 'Europa';
+  // eToro-style: JPN 225, AUS 200, HKG 50, CHN A50, CHINA50, NIFTY50
+  if(/\b(JPN|AUS|HKG|CHN|CHINA|NIKKEI|HANG|KOSPI|SENSEX|NIFTY|STI|ASX)\b/.test(n)||
+     /\b(N225|HSI|SHCOMP|KOSPI|SENSEX|NIFTY|STI)\b/.test(s)) return 'Asia';
+  // EE.UU by default: US 500, NAS 100, US 30, US Tech, S&P, DOW, NASDAQ, RUSSELL
+  return 'EE.UU';
 }
 
 async function renderIndices(){
@@ -884,7 +889,7 @@ function showChatReady(){
   document.getElementById('chat-messages').style.display='flex';
   document.getElementById('chat-input-area').style.display='block';
   if(chatHistory.length===0){
-    appendMsg('ai','¡Hola! Soy tu asistente financiero. Tengo acceso a los datos de tu portafolio y puedo ayudarte con análisis, dudas sobre tus posiciones, sectores, dividendos, earnings y más. ¿En qué te ayudo?');
+    appendMsg('ai','¡Hola! Soy Warren, tu asesor de inversiones 📈 Tengo acceso a los datos de tu portafolio y puedo ayudarte con análisis, posiciones, sectores, dividendos, earnings y más. ¿En qué te ayudo?');
   }
   document.getElementById('chat-input').focus();
 }
@@ -972,9 +977,9 @@ async function sendChat(){
 
   try {
     const context=await buildPortfolioContext();
-    const systemPrompt=`Eres un asistente financiero personal y amigable. Responde siempre en español de manera concisa y útil.
+    const systemPrompt=`Eres Warren, un asesor de inversiones personal experto e inspirado en la filosofía de inversión de Warren Buffett. Responde siempre en español de manera concisa, directa y útil.
 ${context}
-Usa los datos del portafolio para personalizar tus respuestas. Si te preguntan sobre una acción específica en el portafolio, menciona la posición del usuario.`;
+Usa los datos del portafolio para personalizar tus respuestas. Si te preguntan sobre una acción específica en el portafolio, menciona la posición del usuario. Aporta perspectiva de largo plazo y value investing cuando sea relevante.`;
 
     chatHistory.push({role:'user',parts:[{text:msg}]});
 
