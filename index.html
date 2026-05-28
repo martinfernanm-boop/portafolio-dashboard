@@ -362,7 +362,7 @@ a{color:inherit;text-decoration:none}
     <span class="nav-icon">🏠</span><span>Inicio</span>
   </button>
   <button class="nav-item" id="nav-portfolio" onclick="navigate('portfolio')">
-    <span class="nav-icon">📈</span><span>Portfolio</span>
+    <span class="nav-icon">📈</span><span>PortFolio</span>
   </button>
   <button class="nav-item" id="nav-noticias" onclick="navigate('noticias')">
     <span class="nav-icon">📰</span><span>Noticias</span>
@@ -554,7 +554,7 @@ async function renderHome(){
     document.getElementById('h-total').textContent = usd(resumen.valor);
     const gpEl=document.getElementById('h-gp');
     gpEl.textContent=(resumen.ganancia>=0?'+':'')+usd(resumen.ganancia);
-    gpEl.className='meta-value '+clr(resumen.ganancia);
+    gpEl.className='meta-value '+cls(resumen.ganancia);
     const retEl=document.getElementById('h-ret');
     retEl.textContent=fmtPct(resumen.retorno);
     retEl.className='meta-value '+cls(resumen.retorno);
@@ -724,12 +724,12 @@ async function fetchFundamentals(ticker, cantidad){
     }
 
     const fundItems=[
-      {label:'P/E (trailing)',  val: q.trailingPE!=null    ? fmt(q.trailingPE,1)     : '—'},
+      {label:'P/E (trailing)',  val: q.trailingPE!?null    ? fmt(q.trailingPE,1)    : '—'},
       {label:'P/E (forward)',   val: q.forwardPE!=null     ? fmt(q.forwardPE,1)     : '—'},
       {label:'EPS (trailing)',  val: q.epsTrailingTwelveMonths!=null ? '$'+fmt(q.epsTrailingTwelveMonths,2) : '—'},
       {label:'Beta',            val: q.beta!=null          ? fmt(q.beta,2)          : '—'},
       {label:'Market Cap',      val: q.marketCap!=null     ? fmtBig(q.marketCap)    : '—'},
-      {label:'Margen neto',     val: q.profitMargins!=null ? fmt(q.profitMargins100,1)+'%' : '—'},
+      {label:'Margen neto',     val: q.profitMargins!=null ? fmt(q.profitMargins*100,1)+'%' : '—'},
       {label:'Analistas',       val: q.averageAnalystRating||'—'},
       {label:'Precio objetivo', val: q.targetMeanPrice!=null ? '$'+fmt(q.targetMeanPrice,2) : '—'},
     ];
@@ -920,80 +920,7 @@ async function renderIndices(){
     for(const [key,elId] of Object.entries(sections)){
       const el=document.getElementById(elId);
       const list=groups[key];
-      el.innerHTML=list.map(idx=>{
-        const pct=typeof idx.pct==='number'?idx.pct:0;  const pct=typeof idx.pct==='number'?idx.pct:0;
-        const sign=pct>=0?'+':'';
-        const priceStr=idx.price!=null?fmt(idx.price,idx.price>=1000?0:2):'—';
-        const safe=encodeURIComponent(idx.sym);
-        const safeName=idx.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-        // Pass pct already in % form, openIdxNews receives it as-is
-        return `<div class="idx-row" onclick="openIdxNews('${safe}','${safeName}',${pct})">
-          <div class="idx-left">
-            <div class="idx-name">${idx.name}</div>
-            <div class="idx-sub">${idx.sym}</div>
-          </div>
-          <div class="idx-right">
-            <div class="idx-price">${priceStr}</div>
-            <div class="idx-var ${pct>=0?'positive':'negative'}">${sign}${fmt(Math.abs(pct),2)}%</div>
-          </div>
-        </div>`;
-      }).join('');
-    }
-  } catch(e){
-    console.error('Indices:',e);
-    ['idx-us','idx-eu','idx-asia'].forEach(id=>{
-      document.getElementById(id).innerHTML='<div class="loading" style="font-size:.8rem">Error al cargar. <span style="color:var(--blue);cursor:pointer" onclick="renderIndices()">Reintentar</span></div>';
-    });
-  }
-}
-
-function openIdxNews(encodedSimbolo, safeName, pct){
-  const simbolo=decodeURIComponent(encodedSimbolo);
-  const sheet=document.getElementById('idx-news-sheet');
-  const overlay=document.getElementById('idx-sheet-overlay');
-  document.getElementById('idx-sheet-name').textContent=safeName;
-  const varEl=document.getElementById('idx-sheet-var');
-  varEl.textContent=(pct>=0?'+':'')+fmt(Math.abs(pct),2)+'% hoy · '+simbolo;
-  varEl.style.color=pct>=0?'var(--green)':'var(--red)';
-  document.getElementById('idx-sheet-news-list').innerHTML='<div class="loading"><div class="spinner"></div>Cargando noticias…</div>';
-  sheet.classList.add('open');
-  overlay.style.display='block';
-  fetchIdxNews(simbolo, safeName);
-}
-
-function closeIdxSheet(){
-  document.getElementById('idx-news-sheet').classList.remove('open');
-  document.getElementById('idx-sheet-overlay').style.display='none';
-}
-
-async function fetchIdxNews(simbolo, nombre){
-  const el=document.getElementById('idx-sheet-news-list');
-  // Use the name before the dash for better Yahoo Finance search (e.g. "Nikkei 225" from "Nikkei 225 — Japón")
-  const query=nombre.split('—')[0].split('-')[0].trim()||simbolo;
-  try {
-    const url=`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=10&enableFuzzyQuery=false`;
-    const j=await fetch(PROXY+encodeURIComponent(url)).then(r=>r.json());
-    const news=j?.news||[];
-    if(!news.length){
-      el.innerHTML='<div class="loading">Sin noticias disponibles.</div>';
-      return;
-    }
-    el.innerHTML=news.map(n=>
-      `<a class="news-link" href="${n.link}" target="_blank" rel="noopener noreferrer"><div class="news-item"><div class="news-title">${n.title}</div><div class="news-meta">${n.publisher} · ${relTime(n.providerPublishTime)}</div></div></a>`
-    ).join('');
-  } catch(e){
-    el.innerHTML<`<div class="news-item"><div class="news-title" style="color:var(--muted)">No se pudieron cargar las noticias.</div><div class="news-meta"><a href="https://finance.yahoo.com/search?q=${encodeURIComponent(query)}" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div></div>`;
-  }
-}
-
-// ── CHATBOT ───────────────────────────────────────────────────
-let geminiKey = localStorage.getItem('gemini_api_key') || '';
-
-function toggleChat(){
-  chatOpen=!chatOpen;
-  document.getElementById('chat-panel').classList.toggle('open',chatOpen);
-  document.getElementById('chat-fab').classList.toggle('open',chatOpen);
-  document.getElementById('chat-fab').textContent=chatOpen?'✕':'💬';
+      el.innerHTML=list.map(function(idx)etElementById('chat-fab').textContent=chatOpen?'✕':'💬';
   if(chatOpen && !chatReady) initChat();
 }
 
@@ -1058,7 +985,101 @@ async function callGemini(systemPrompt) {
   const body={
     system_instruction:{parts:[{text:systemPrompt}]},
     contents:chatHistory,
-    generationConfig:ztemperature:0.7,maxOutputTokens:1024,topP:0.9}
+    generationConfig:{temperature:0.7,maxOutputTokens:1024,topP:0.9}
+  };
+  let quotaExhausted=false;
+  let lastErr;
+  for(const model of GEMINI_MODELS){
+    try{
+      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const j=await r.json();
+      if(j.error){
+        lastErr=new Error(j.error.message);
+        if(j.error.code===429||j.error.status==='RESOURCE_EXHAUSTED'){ quotaExhausted=true; continue; }
+        throw lastErr;
+      }
+      return j?.candidates?.[0]?.content?.parts?.[0]?.text||'Sin respuesta';
+    } catch(e){ lastErr=e; }
+  }
+  if(quotaExhausted) throw new Error('QUOTA_EXHAUSTED');
+  throw lastErr||new Error('Todos los modelos Gemini fallaron');
+}
+
+async function callGroq(systemPrompt) {
+  const messages=[
+    {role:'system',content:systemPrompt},
+    ...chatHistory.map(m=>({role:m.role==='model'?'assistant':'user',content:m.parts[0].text}))
+  ];
+  const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+geminiKey},
+    body:JSON.stringify({model:'llama-3.3-70b-versatile',messages,max_tokeetElementById('chat-fab').textContent=chatOpen?'✕':'💬';
+  if(chatOpen && !chatReady) initChat();
+}
+
+function initChat(){
+  if(geminiKey){
+    showChatReady();
+  } else {
+    document.getElementById('api-key-setup').style.display='flex';
+    document.getElementById('chat-messages').style.display='none';
+    document.getElementById('chat-input-area').style.display='none';
+  }
+}
+
+function saveGeminiKey(){
+  const val=document.getElementById('gemini-key-input').value.trim();
+  if(!val.startsWith('AIza')&&!val.startsWith('gsk_')){ alert('La API key debe comenzar con "AIza" (Gemini) o "gsk_" (Groq)'); return; }
+  geminiKey=val;
+  localStorage.setItem('gemini_api_key',val);
+  showChatReady();
+}
+
+function showChatReady(){
+  chatReady=true;
+  document.getElementById('api-key-setup').style.display='none';
+  document.getElementById('chat-messages').style.display='flex';
+  document.getElementById('chat-input-area').style.display='block';
+  if(chatHistory.length===0){
+    appendMsg('ai','¡Hola! Soy Warren, tu asesor de inversiones 📈 Tengo acceso a los datos de tu portafolio y puedo ayudarte con análisis, posiciones, sectores, dividendos, earnings y más. ¿En qué te ayudo?');
+  }
+  document.getElementById('chat-input').focus();
+}
+
+function appendMsg(role, text){
+  const div=document.createElement('div');
+  div.className='msg msg-'+role;
+  div.textContent=text;
+  const msgs=document.getElementById('chat-messages');
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+  return div;
+}
+
+async function buildPortfolioContext(){
+  try {
+    const {resumen,posiciones}=await get('portafolio');
+    const posStr=posiciones.map(p=>`${p.ticker} (${p.nombre}): $${fmt(p.valorUSD,0)}, retorno ${fmtPct(p.retorno)}, sector ${SECTORS[p.ticker]||'?'}`).join('\n');
+    return `CONTEXTO DEL PORTAFOLIO DE MARTIN:
+Valor total: ${usd(resumen.valor)}
+Ganancia/Pérdida: ${usd(resumen.ganancia)} (${fmtPct(resumen.retorno)})
+En caja: ${usd(resumen.caja||0)}
+Última actualización: ${resumen.fecha}
+
+POSICIONES:
+${posStr}`;
+  } catch { return ''; }
+}
+
+// ── AI PROVIDERS ─────────────────────────────────────────────
+const GEMINI_MODELS = ['gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash'];
+
+async function callGemini(systemPrompt) {
+  const body={
+    system_instruction:{parts:[{text:systemPrompt}]},
+    contents:chatHistory,
+    generationConfig:{temperature:0.7,maxOutputTokens:1024,topP:0.9}
   };
   let quotaExhausted=false;
   let lastErr;
