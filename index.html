@@ -724,7 +724,7 @@ async function fetchFundamentals(ticker, cantidad){
     }
 
     const fundItems=[
-      {label:'P/E (trailing)',  val: q.trailingPE!?null    ? fmt(q.trailingPE,1)    : '—'},
+      {label:'P/E (trailing)',  val: q.trailingPE!=null    ? fmt(q.trailingPE,1)    : '—'},
       {label:'P/E (forward)',   val: q.forwardPE!=null     ? fmt(q.forwardPE,1)     : '—'},
       {label:'EPS (trailing)',  val: q.epsTrailingTwelveMonths!=null ? '$'+fmt(q.epsTrailingTwelveMonths,2) : '—'},
       {label:'Beta',            val: q.beta!=null          ? fmt(q.beta,2)          : '—'},
