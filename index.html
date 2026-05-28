@@ -52,7 +52,7 @@ a{color:inherit;text-decoration:none}
 .pos-row{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
 .pos-row:last-child{border-bottom:none}
 .pos-row:hover{background:var(--surface2)}
-.pos-ticker{font-weight:700;font-size:.9rem;width:76px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowraw;line-height:1.3}
+.pos-ticker{font-weight:700;font-size:.9rem;width:76px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
 .pos-info{flex:1;min-width:0}
 .pos-name{font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pos-sub{font-size:.68rem;color:var(--muted);margin-top:1px}
@@ -920,101 +920,79 @@ async function renderIndices(){
     for(const [key,elId] of Object.entries(sections)){
       const el=document.getElementById(elId);
       const list=groups[key];
-      el.innerHTML=list.map(function(idx)etElementById('chat-fab').textContent=chatOpen?'✕':'💬';
-  if(chatOpen && !chatReady) initChat();
-}
-
-function initChat(){
-  if(geminiKey){
-    showChatReady();
-  } else {
-    document.getElementById('api-key-setup').style.display='flex';
-    document.getElementById('chat-messages').style.display='none';
-    document.getElementById('chat-input-area').style.display='none';
+      el.innerHTML=list.map(function(idx){
+        var idxPct=typeof idx.pct==='number'?idx.pct:0;
+        var idxSign=idxPct>=0?'+':'';
+        var priceStr=idx.price!=null?fmt(idx.price,idx.price>=1000?0:2):'—';
+        var safe=encodeURIComponent(idx.sym);
+        var safeName=idx.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        return '<div class="idx-row" onclick="openIdxNews(\''+safe+'\',\''+safeName+'\','+idxPct+')">'
+          +'<div class="idx-left">'
+          +'<div class="idx-name">'+idx.name+'</div>'
+          +'<div class="idx-sub">'+idx.sym+'</div>'
+          +'</div>'
+          +'<div class="idx-right">'
+          +'<div class="idx-price">'+priceStr+'</div>'
+          +'<div class="idx-var '+(idxPct>=0?'positive':'negative')+'">'+idxSign+fmt(Math.abs(idxPct),2)+'%</div>'
+          +'</div>'
+          +'</div>';
+      }).join('');
+    }
+  } catch(e){
+    console.error('Indices:',e);
+    ['idx-us','idx-eu','idx-asia'].forEach(id=>{
+      document.getElementById(id).innerHTML='<div class="loading" style="font-size:.8rem">Error al cargar. <span style="color:var(--blue);cursor:pointer" onclick="renderIndices()">Reintentar</span></div>';
+    });
   }
 }
 
-function saveGeminiKey(){
-  const val=document.getElementById('gemini-key-input').value.trim();
-  if(!val.startsWith('AIza')&&!val.startsWith('gsk_')){ alert('La API key debe comenzar con "AIza" (Gemini) o "gsk_" (Groq)'); return; }
-  geminiKey=val;
-  localStorage.setItem('gemini_api_key',val);
-  showChatReady();
+function openIdxNews(encodedSimbolo, safeName, pct){
+  const simbolo=decodeURIComponent(encodedSimbolo);
+  const sheet=document.getElementById('idx-news-sheet');
+  const overlay=document.getElementById('idx-sheet-overlay');
+  document.getElementById('idx-sheet-name').textContent=safeName;
+  const varEl=document.getElementById('idx-sheet-var');
+  varEl.textContent=(pct>=0?'+':'')+fmt(Math.abs(pct),2)+'% hoy · '+simbolo;
+  varEl.style.color=pct>=0?'var(--green)':'var(--red)';
+  document.getElementById('idx-sheet-news-list').innerHTML='<div class="loading"><div class="spinner"></div>Cargando noticias…</div>';
+  sheet.classList.add('open');
+  overlay.style.display='block';
+  fetchIdxNews(simbolo, safeName);
 }
 
-function showChatReady(){
-  chatReady=true;
-  document.getElementById('api-key-setup').style.display='none';
-  document.getElementById('chat-messages').style.display='flex';
-  document.getElementById('chat-input-area').style.display='block';
-  if(chatHistory.length===0){
-    appendMsg('ai','¡Hola! Soy Warren, tu asesor de inversiones 📈 Tengo acceso a los datos de tu portafolio y puedo ayudarte con análisis, posiciones, sectores, dividendos, earnings y más. ¿En qué te ayudo?');
-  }
-  document.getElementById('chat-input').focus();
+function closeIdxSheet(){
+  document.getElementById('idx-news-sheet').classList.remove('open');
+  document.getElementById('idx-sheet-overlay').style.display='none';
 }
 
-function appendMsg(role, text){
-  const div=document.createElement('div');
-  div.className='msg msg-'+role;
-  div.textContent=text;
-  const msgs=document.getElementById('chat-messages');
-  msgs.appendChild(div);
-  msgs.scrollTop=msgs.scrollHeight;
-  return div;
-}
-
-async function buildPortfolioContext(){
+async function fetchIdxNews(simbolo, nombre){
+  const el=document.getElementById('idx-sheet-news-list');
+  // Use the name before the dash for better Yahoo Finance search (e.g. "Nikkei 225" from "Nikkei 225 — Japón")
+  const query=nombre.split('—')[0].split('-')[0].trim()||simbolo;
   try {
-    const {resumen,posiciones}=await get('portafolio');
-    const posStr=posiciones.map(p=>`${p.ticker} (${p.nombre}): $${fmt(p.valorUSD,0)}, retorno ${fmtPct(p.retorno)}, sector ${SECTORS[p.ticker]||'?'}`).join('\n');
-    return `CONTEXTO DEL PORTAFOLIO DE MARTIN:
-Valor total: ${usd(resumen.valor)}
-Ganancia/Pérdida: ${usd(resumen.ganancia)} (${fmtPct(resumen.retorno)})
-En caja: ${usd(resumen.caja||0)}
-Última actualización: ${resumen.fecha}
-
-POSICIONES:
-${posStr}`;
-  } catch { return ''; }
-}
-
-// ── AI PROVIDERS ─────────────────────────────────────────────
-const GEMINI_MODELS = ['gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash'];
-
-async function callGemini(systemPrompt) {
-  const body={
-    system_instruction:{parts:[{text:systemPrompt}]},
-    contents:chatHistory,
-    generationConfig:{temperature:0.7,maxOutputTokens:1024,topP:0.9}
-  };
-  let quotaExhausted=false;
-  let lastErr;
-  for(const model of GEMINI_MODELS){
-    try{
-      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
-        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      const j=await r.json();
-      if(j.error){
-        lastErr=new Error(j.error.message);
-        if(j.error.code===429||j.error.status==='RESOURCE_EXHAUSTED'){ quotaExhausted=true; continue; }
-        throw lastErr;
-      }
-      return j?.candidates?.[0]?.content?.parts?.[0]?.text||'Sin respuesta';
-    } catch(e){ lastErr=e; }
+    const url=`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=10&enableFuzzyQuery=false`;
+    const j=await fetch(PROXY+encodeURIComponent(url)).then(r=>r.json());
+    const news=j?.news||[];
+    if(!news.length){
+      el.innerHTML='<div class="loading">Sin noticias disponibles.</div>';
+      return;
+    }
+    el.innerHTML=news.map(n=>
+      `<a class="news-link" href="${n.link}" target="_blank" rel="noopener noreferrer"><div class="news-item"><div class="news-title">${n.title}</div><div class="news-meta">${n.publisher} · ${relTime(n.providerPublishTime)}</div></div></a>`
+    ).join('');
+  } catch(e){
+    el.innerHTML=`<div class="news-item"><div class="news-title" style="color:var(--muted)">No se pudieron cargar las noticias.</div><div class="news-meta"><a href="https://finance.yahoo.com/search?q=${encodeURIComponent(query)}" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div></div>`;
   }
-  if(quotaExhausted) throw new Error('QUOTA_EXHAUSTED');
-  throw lastErr||new Error('Todos los modelos Gemini fallaron');
 }
 
-async function callGroq(systemPrompt) {
-  const messages=[
-    {role:'system',content:systemPrompt},
-    ...chatHistory.map(m=>({role:m.role==='model'?'assistant':'user',content:m.parts[0].text}))
-  ];
-  const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+geminiKey},
-    body:JSON.stringify({model:'llama-3.3-70b-versatile',messages,max_tokeetElementById('chat-fab').textContent=chatOpen?'✕':'💬';
+// ── CHATBOT ───────────────────────────────────────────────────
+let geminiKey = localStorage.getItem('gemini_api_key') || '';
+
+function toggleChat(){
+  chatOpen=!chatOpen;
+  document.getElementById('chat-panel').classList.toggle('open',chatOpen);
+  document.getElementById('chat-fab').classList.toggle('open',chatOpen);
+  document.getElementById('chat-fab').textContent=chatOpen?'✕':'💬';
   if(chatOpen && !chatReady) initChat();
 }
 
