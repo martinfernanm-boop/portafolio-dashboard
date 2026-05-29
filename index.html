@@ -642,7 +642,7 @@ function renderPosRows(posiciones){
     const vd=toPct(p.varDia), rt=toPct(p.retorno);
     const vdSign=vd>=0?'+':'';
     let secondLine,secondCls;
-    if(pfMode==='pct'){ secondLine=`${rt>=0?'+':''}${fmt(rp,2)}% total`; secondCls=rt>=0?'positive':'negative'; }
+    if(pfMode==='pct'){ secondLine=`${rt>=0?'+':''}${fmt(rt,2)}% total`; secondCls=rt>=0?'positive':'negative'; }
     else { secondLine=`${p.gpUSD>=0?'+':''}${usd(p.gpUSD)}`; secondCls=p.gpUSD>=0?'positive':'negative'; }
     // QUINENCO: si valorUSD es 0 o inválido, mostrar igual con nota
     const val=p.valorUSD>0 ? usd(p.valorUSD) : '<span style="color:var(--muted);font-size:.72rem">Sin precio USD</span>';
