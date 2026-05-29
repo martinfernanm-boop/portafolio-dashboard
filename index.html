@@ -978,46 +978,40 @@ async function renderIndices(){
   });
 
   try {
-    const symbols=INDICES_CONFIG.map(i=>i.sym).join(',');
-    const url=`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&fields=regularMarketPrice,regularMarketChangePercent,regularMarketChange,shortName,regularMarketTime`;
-    const j=await fetchYF(url);
-    const quotes=j?.quoteResponse?.result||[];
+    // v7/quote bloquea desde el browser; usar v8/chart en paralelo (mismo endpoint que stocks)
+    const fetched=await Promise.all(INDICES_CONFIG.map(async cfg=>{
+      try {
+        const j=await fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(cfg.sym)}?interval=1d&range=5d`);
+        const res=j?.chart?.result?.[0];
+        const closes=(res?.indicators?.quote?.[0]?.close||[]).filter(v=>v!=null);
+        const last=closes[closes.length-1]??null;
+        const prev=closes[closes.length-2]??null;
+        return {...cfg,price:last,pct:(prev&&last)?(last/prev-1)*100:null};
+      } catch { return {...cfg,price:null,pct:null}; }
+    }));
 
-    // Map symbol → quote data
-    const qmap={};
-    quotes.forEach(q=>{ qmap[q.symbol]=q; });
-
-    // Group by region
     const groups={us:[],eu:[],asia:[]};
-    INDICES_CONFIG.forEach(cfg=>{
-      const q=qmap[cfg.sym]||{};
-      groups[cfg.region].push({
-        sym:cfg.sym,
-        name:cfg.name,
-        price:q.regularMarketPrice,
-        pct:q.regularMarketChangePercent,
-        change:q.regularMarketChange,
-      });
-    });
+    fetched.forEach(idx=>groups[idx.region].push(idx));
 
     const sections={us:'idx-us',eu:'idx-eu',asia:'idx-asia'};
     for(const [key,elId] of Object.entries(sections)){
       const el=document.getElementById(elId);
       const list=groups[key];
       el.innerHTML=list.map(function(idx){
-        var idxPct=typeof idx.pct==='number'?idx.pct:0;
-        var idxSign=idxPct>=0?'+':'';
+        var idxPct=typeof idx.pct==='number'?idx.pct:null;
         var priceStr=idx.price!=null?fmt(idx.price,idx.price>=1000?0:2):'—';
+        var pctStr=idxPct!=null?(idxPct>=0?'+':'')+fmt(Math.abs(idxPct),2)+'%':'—';
+        var clsCss=idxPct!=null?(idxPct>=0?'positive':'negative'):'';
         var safe=encodeURIComponent(idx.sym);
         var safeName=idx.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-        return '<div class="idx-row" onclick="openIdxNews(\''+safe+'\',\''+safeName+'\','+idxPct+')">'
+        return '<div class="idx-row" onclick="openIdxNews(\''+safe+'\',\''+safeName+'\','+(idxPct||0)+')">'
           +'<div class="idx-left">'
           +'<div class="idx-name">'+idx.name+'</div>'
           +'<div class="idx-sub">'+idx.sym+'</div>'
           +'</div>'
           +'<div class="idx-right">'
           +'<div class="idx-price">'+priceStr+'</div>'
-          +'<div class="idx-var '+(idxPct>=0?'positive':'negative')+'">'+idxSign+fmt(Math.abs(idxPct),2)+'%</div>'
+          +'<div class="idx-var '+clsCss+'">'+pctStr+'</div>'
           +'</div>'
           +'</div>';
       }).join('');
