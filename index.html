@@ -52,7 +52,7 @@ a{color:inherit;text-decoration:none}
 .pos-row{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
 .pos-row:last-child{border-bottom:none}
 .pos-row:hover{background:var(--surface2)}
-.pos-ticker{font-weight:700;font-size:.9rem;width:76px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
+.pos-ticker{font-weight:700;font-size:.9rem;width:76px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowraw;line-height:1.3}
 .pos-info{flex:1;min-width:0}
 .pos-name{font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pos-sub{font-size:.68rem;color:var(--muted);margin-top:1px}
@@ -442,10 +442,10 @@ const INDICES_CONFIG = [
   {sym:'^IXIC',    name:'Nasdaq',         region:'us'},
   {sym:'^RUT',     name:'Russell 2000',   region:'us'},
   // 🌍 Europa
-  {sym:'^STOXX50E',name:'Euro Stoxx 50',  region:'eu'},
+  {sym:'^STOXX50E', name:'Euro Stoxx 50',  region:'eu'},
   {sym:'^FTSE',    name:'FTSE 100',       region:'eu'},
   {sym:'^GDAXI',   name:'DAX',            region:'eu'},
-  {sym:'^FCHI',    name:'CAC 40',         region:'eu'},
+  {sym:'^FCHI',    name:'CAC 40',        region:'eu'},
   // 🌏 Asia & Oceanía
   {sym:'^N225',    name:'Nikkei 225',     region:'asia'},
   {sym:'^HSI',     name:'Hang Seng',      region:'asia'},
@@ -642,7 +642,7 @@ function renderPosRows(posiciones){
     const vd=toPct(p.varDia), rt=toPct(p.retorno);
     const vdSign=vd>=0?'+':'';
     let secondLine,secondCls;
-    if(pfMode==='pct'){ secondLine=`${rt>=0?'+':''}${fmt(rt,2)}% total`; secondCls=rt>=0?'positive':'negative'; }
+    if(pfMode==='pct'){ secondLine=`${rt>=0?'+':''}${fmt(rp,2)}% total`; secondCls=rt>=0?'positive':'negative'; }
     else { secondLine=`${p.gpUSD>=0?'+':''}${usd(p.gpUSD)}`; secondCls=p.gpUSD>=0?'positive':'negative'; }
     // QUINENCO: si valorUSD es 0 o inválido, mostrar igual con nota
     const val=p.valorUSD>0 ? usd(p.valorUSD) : '<span style="color:var(--muted);font-size:.72rem">Sin precio USD</span>';
@@ -679,7 +679,7 @@ async function renderStock(ticker){
       document.getElementById('s-price').textContent=usd(p.precioActual);
       const vd=toPct(p.varDia);
       const vdEl=document.getElementById('s-varday');
-      vdEl.textContent=(vd>=0?'▲ +':'▼ ')+fmt(vd,2)+'% hoy';
+      vdEl.textContent=(vd>=0?'╯ +':'▼ ')+fmt(vd,2)+'% hoy';
       vdEl.className='stock-varday '+(vd>=0?'positive':'negative');
       const d1El=document.getElementById('v-1d');
       d1El.textContent=(vd>=0?'+':'')+fmt(vd,2)+'%';
@@ -707,65 +707,149 @@ async function renderStock(ticker){
 async function fetchFundamentals(ticker, cantidad){
   document.getElementById('fund-section').style.display='block';
   document.getElementById('div-section').style.display='none';
-  if(ticker==='QUINENCO'){
-    document.getElementById('fund-grid').innerHTML='<div style="color:var(--muted);font-size:.8rem;grid-column:1/-1;padding:8px 0">Datos no disponibles para QUINENCO en Yahoo Finance.</div>';
+  document.getElementById('fund-grid').innerHTML='<div class="loading" style="grid-column:1/-1"><div class="spinner"></div>Cargando…</div>';
+
+  const yf = ticker==='QUINENCO' ? 'QUINENCO.SN' : ticker;
+  let q = null; // normalized data object
+
+  // ── 1) Apps Script proxy (server-side, no CORS) ──────────────
+  if(ticker!=='QUINENCO'){
+    try {
+      const r = await fetch(`${API}?action=fundamentals&ticker=${ticker}`,
+        {signal: AbortSignal.timeout(9000)});
+      const d = await r.json();
+      if(d && !d.error && (d.trailingPE!=null || d.marketCap!=null || d.eps!=null)){
+        q = {
+          trailingPE: d.trailingPE, forwardPE: d.forwardPE,
+          eps: d.eps, beta: d.beta, marketCap: d.marketCap,
+          profitMargins: d.profitMargins, targetMeanPrice: d.targetMeanPrice,
+          averageAnalystRating: d.averageAnalystRating||null,
+          fiftyTwoWeekHigh: d.fiftyTwoWeekHigh, fiftyTwoWeekLow: d.fiftyTwoWeekLow,
+          regularMarketPrice: d.regularMarketPrice,
+          dividendRate: d.trailingAnnualDividendRate||null,
+          dividendYield: d.dividendYield, exDividendDate: null,
+          epsForward: null, earningsTimestamp: null, _src:'apps'
+        };
+      }
+    } catch(e){ console.warn('AS fundamentals:',e.message); }
+  }
+
+  // ── 2) Yahoo Finance v10 direct (works if user has Yahoo cookies) ─
+  if(!q){
+    try {
+      const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${yf}?modules=summaryDetail%2CdefaultKeyStatistics%2CfinancialData%2CearningsTrend`;
+      const r = await fetch(url, {signal: AbortSignal.timeout(7000)});
+      if(r.ok){
+        const d = await r.json();
+        const res = d?.quoteSummary?.result?.[0];
+        if(res){
+          const sd=res.summaryDetail||{}, ks=res.defaultKeyStatistics||{}, fd=res.financialData||{};
+          q = {
+            trailingPE: sd.trailingPE?.raw??null, forwardPE: sd.forwardPE?.raw??null,
+            eps: ks.trailingEps?.raw??null, beta: sd.beta?.raw??null,
+            marketCap: sd.marketCap?.raw??null,
+            profitMargins: fd.profitMargins?.raw??null,
+            targetMeanPrice: fd.targetMeanPrice?.raw??null,
+            averageAnalystRating: fd.recommendationKey||null,
+            fiftyTwoWeekHigh: sd.fiftyTwoWeekHigh?.raw??null,
+            fiftyTwoWeekLow: sd.fiftyTwoWeekLow?.raw??null,
+            regularMarketPrice: sd.regularMarketPrice?.raw??null,
+            dividendRate: sd.dividendRate?.raw??null,
+            dividendYield: sd.dividendYield?.raw??null,
+            exDividendDate: sd.exDividendDate?.raw??null,
+            epsForward: ks.forwardEps?.raw??null,
+            earningsTimestamp: null, _src:'yf_direct'
+          };
+        }
+      }
+    } catch(e){ console.warn('YF direct:',e.message); }
+  }
+
+  // ── 3) Yahoo Finance v7 via proxy ────────────────────────────
+  if(!q){
+    try {
+      const yfUrl=`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${yf}`;
+      const j = await fetch('https://corsproxy.io/?url='+encodeURIComponent(yfUrl),
+        {signal: AbortSignal.timeout(7000)}).then(r=>r.json());
+      const r2 = j?.quoteResponse?.result?.[0];
+      if(r2){
+        q = {
+          trailingPE: r2.trailingPE??null, forwardPE: r2.forwardPE??null,
+          eps: r2.epsTrailingTwelveMonths??null, beta: r2.beta??null,
+          marketCap: r2.marketCap??null, profitMargins: r2.profitMargins??null,
+          targetMeanPrice: r2.targetMeanPrice??null,
+          averageAnalystRating: r2.averageAnalystRating||null,
+          fiftyTwoWeekHigh: r2.fiftyTwoWeekHigh??null,
+          fiftyTwoWeekLow: r2.fiftyTwoWeekLow??null,
+          regularMarketPrice: r2.regularMarketPrice??null,
+          dividendRate: r2.dividendRate??null,
+          dividendYield: r2.dividendYield??null,
+          exDividendDate: r2.exDividendDate??null,
+          epsForward: r2.epsForward??null,
+          earningsTimestamp: r2.earningsTimestamp??null, _src:'yf_proxy'
+        };
+      }
+    } catch(e){ console.warn('YF proxy:',e.message); }
+  }
+
+  // ── 4) Render ────────────────────────────────────────────────
+  if(!q){
+    // No data from any source
+    let msg = ticker==='QUINENCO'
+      ? 'Datos limitados para QUINENCO (acción chilena).'
+      : 'No se pudieron cargar los fundamentales.';
+    document.getElementById('fund-grid').innerHTML=`
+      <div style="color:var(--muted);font-size:.82rem;grid-column:1/-1;padding:8px 0;line-height:1.8">
+        ${msg}<br>
+        <a href="https://finance.yahoo.com/quote/${yf}" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a>
+      </div>`;
     return;
   }
-  document.getElementById('fund-grid').innerHTML='<div class="loading" style="grid-column:1/-1"><div class="spinner"></div>Cargando…</div>';
-  try {
-    // v7/quote — always via proxy to avoid CORS; no fields filter so Yahoo returns everything
-    const yf = ticker==='QUINENCO' ? 'QUINENCO.SN' : ticker;
-    const yfUrl = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${yf}`;
-    const j = await fetch('https://corsproxy.io/?url='+encodeURIComponent(yfUrl)).then(r=>r.json());
-    const q = j?.quoteResponse?.result?.[0];
-    if(!q){
-      document.getElementById('fund-grid').innerHTML='<div style="color:var(--muted);font-size:.8rem;grid-column:1/-1;padding:8px 0">Datos no disponibles. <a href="https://finance.yahoo.com/quote/'+ticker+'" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div>';
-      return;
+
+  const fundItems=[
+    {label:'P/E (trailing)',  val: q.trailingPE!=null     ? fmt(q.trailingPE,1)                         : '—'},
+    {label:'P/E (forward)',   val: q.forwardPE!=null      ? fmt(q.forwardPE,1)                          : '—'},
+    {label:'EPS (trailing)',  val: q.eps!=null             ? '$'+fmt(q.eps,2)                            : '—'},
+    {label:'Beta',            val: q.beta!=null            ? fmt(q.beta,2)                               : '—'},
+    {label:'Market Cap',      val: q.marketCap!=null       ? fmtBig(q.marketCap)                         : '—'},
+    {label:'Margen neto',     val: q.profitMargins!=null   ? fmt(q.profitMargins*100,1)+'%'              : '—'},
+    {label:'Precio objetivo', val: q.targetMeanPrice!=null ? '$'+fmt(q.targetMeanPrice,2)                : '—'},
+    {label:'52w Alto',        val: q.fiftyTwoWeekHigh!=null? '$'+fmt(q.fiftyTwoWeekHigh,2)               : '—'},
+    {label:'52w Bajo',        val: q.fiftyTwoWeekLow!=null ? '$'+fmt(q.fiftyTwoWeekLow,2)                : '—'},
+    {label:'Analistas',       val: q.averageAnalystRating  ? q.averageAnalystRating                      : '—'},
+  ];
+
+  document.getElementById('fund-grid').innerHTML=fundItems.map(f=>`
+    <div class="fund-card">
+      <div class="fund-label">${f.label}</div>
+      <div class="fund-val">${f.val}</div>
+    </div>`).join('');
+
+  // ── Dividendos & Earnings ────────────────────────────────────
+  const rows=[];
+  if(q.dividendRate!=null && q.dividendRate>0){
+    rows.push(['Dividendo anual/acción','$'+fmt(q.dividendRate,2)]);
+    if(q.dividendYield!=null) rows.push(['Yield',fmt(q.dividendYield*100,2)+'%']);
+    if(cantidad>0) rows.push(['Mi pago estimado/año',
+      '<span class="positive">$'+fmt(q.dividendRate*cantidad,2)+'</span> ('+fmt(q.dividendRate*cantidad/4,2)+'$/trim.)']);
+    if(q.exDividendDate) rows.push(['Fecha ex-dividendo',fmtDate(q.exDividendDate)]);
+  } else if(q.dividendYield!=null && q.dividendYield>0){
+    rows.push(['Yield',fmt(q.dividendYield*100,2)+'%']);
+    if(cantidad>0 && q.regularMarketPrice){
+      const annual=q.regularMarketPrice*q.dividendYield;
+      rows.push(['Mi pago estimado/año',
+        '<span class="positive">$'+fmt(annual*cantidad,2)+'</span>']);
     }
-
-    const fundItems=[
-      {label:'P/E (trailing)',  val: q.trailingPE!=null    ? fmt(q.trailingPE,1)    : '—'},
-      {label:'P/E (forward)',   val: q.forwardPE!=null     ? fmt(q.forwardPE,1)     : '—'},
-      {label:'EPS (trailing)',  val: q.epsTrailingTwelveMonths!=null ? '$'+fmt(q.epsTrailingTwelveMonths,2) : '—'},
-      {label:'Beta',            val: q.beta!=null          ? fmt(q.beta,2)          : '—'},
-      {label:'Market Cap',      val: q.marketCap!=null     ? fmtBig(q.marketCap)    : '—'},
-      {label:'Margen neto',     val: q.profitMargins!=null ? fmt(q.profitMargins*100,1)+'%' : '—'},
-      {label:'Analistas',       val: q.averageAnalystRating||'—'},
-      {label:'Precio objetivo', val: q.targetMeanPrice!=null ? '$'+fmt(q.targetMeanPrice,2) : '—'},
-    ];
-
-    document.getElementById('fund-grid').innerHTML=fundItems.map(f=>`
-      <div class="fund-card">
-        <div class="fund-label">${f.label}</div>
-        <div class="fund-val">${f.val}</div>
-      </div>`).join('');
-
-    // Dividendos y Earnings
-    const rows=[];
-    const divRate  = q.dividendRate;
-    const divYield = q.dividendYield;
-    const exDiv    = q.exDividendDate; // unix seconds
-
-    if(divRate!=null && divRate>0){
-      rows.push(['Dividendo anual/acción', '$'+fmt(divRate,2)]);
-      if(divYield!=null) rows.push(['Yield', fmt(divYield*100,2)+'%']);
-      if(cantidad>0) rows.push(['Mi pago estimado/año','<span class="positive">$'+fmt(divRate*cantidad,2)+'</span> ('+fmt(divRate*cantidad/4,2)+'$/trim.)']);
-      if(exDiv) rows.push(['Fecha ex-dividendo', fmtDate(exDiv)]);
-    } else {
-      rows.push(['Dividendo','<span style="color:var(--muted)">No paga dividendos</span>']);
-    }
-    if(q.epsForward!=null) rows.push(['EPS estimado (fwd)','$'+fmt(q.epsForward,2)]);
-    const nextE=q.earningsTimestamp;
-    if(nextE && nextE*1000>Date.now()) rows.push(['Próximos earnings', fmtDate(nextE)]);
-
-    document.getElementById('div-box').innerHTML=rows.map(([l,r])=>`
-      <div class="div-row"><span class="div-l">${l}</span><span class="div-r">${r}</span></div>`).join('');
-    document.getElementById('div-section').style.display='block';
-
-  } catch(e){
-    console.warn('Fundamentals:',e.message);
-    document.getElementById('fund-grid').innerHTML='<div style="color:var(--muted);font-size:.8rem;grid-column:1/-1;padding:8px 0">No se pudieron cargar los fundamentales. <a href="https://finance.yahoo.com/quote/'+ticker+'" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div>';
+  } else {
+    rows.push(['Dividendo','<span style="color:var(--muted)">No paga dividendos</span>']);
   }
+  if(q.epsForward!=null) rows.push(['EPS estimado (fwd)','$'+fmt(q.epsForward,2)]);
+  if(q.earningsTimestamp && q.earningsTimestamp*1000>Date.now())
+    rows.push(['Próximos earnings',fmtDate(q.earningsTimestamp)]);
+
+  document.getElementById('div-box').innerHTML=rows.map(([l,r])=>`
+    <div class="div-row"><span class="div-l">${l}</span><span class="div-r">${r}</span></div>`).join('');
+  document.getElementById('div-section').style.display='block';
 }
 
 function fmtBig(n){
@@ -778,7 +862,7 @@ function fmtBig(n){
 function renderTV(ticker){
   const wrap=document.getElementById('tv-chart-wrap');
   wrap.innerHTML='';
-  const sym=TV_SYM[ticker]||ticker;
+  const sym=TVXSYM[ticker]||ticker;
   if(window.TradingView&&TradingView.widget){
     if(tvWidget){ try{tvWidget.remove();}catch(e){} }
     const cid='tv_'+Date.now();
@@ -787,7 +871,7 @@ function renderTV(ticker){
     wrap.appendChild(d);
     tvWidget=new TradingView.widget({autosize:true,symbol:sym,interval:'D',timezone:'America/New_York',theme:'dark',style:'1',locale:'es',toolbar_bg:'#161b22',enable_publishing:false,hide_top_toolbar:false,save_image:false,container_id:cid});
   } else {
-    wrap.innerHTML=`<div class="tradingview-widget-container" style="height:380px;width:100%"><div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>{"autosize":true,"symbol":"${sym}","interval":"D","timezone":"America/New_York","theme":"dark","style":"1","locale":"es","allow_symbol_change":false,"calendar":false}<\/script></div>`;
+    wrap.innerHTML<`<div class="tradingview-widget-container" style="height:380px;width:100%"><div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>{"autosize":true,"symbol":"${sym}","interval":"D","timezone":"America/New_York","theme":"dark","style":"1","locale":"es","allow_symbol_change":false,"calendar":false}<\/script></div>`;
   }
 }
 
@@ -815,7 +899,7 @@ async function fetchStockNews(ticker){
     if(!news.length){ el.innerHTML='<div class="loading">Sin noticias disponibles.</div>'; return; }
     el.innerHTML=news.map(n=>`<a class="news-link" href="${n.link}" target="_blank" rel="noopener noreferrer"><div class="news-item"><div class="news-title">${n.title}</div><div class="news-meta">${n.publisher} · ${relTime(n.providerPublishTime)}</div></div></a>`).join('');
   } catch(e){
-    el.innerHTML=`<div class="news-item"><div class="news-title" style="color:var(--muted)">No se pudieron cargar las noticias.</div><div class="news-meta"><a href="https://finance.yahoo.com/quote/${yf}/news" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div></div>`;
+    el.innerHTML<`<div class="news-item"><div class="news-title" style="color:var(--muted)">No se pudieron cargar las noticias.</div><div class="news-meta"><a href="https://finance.yahoo.com/quote/${yf}/news" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div></div>`;
   }
 }
 
