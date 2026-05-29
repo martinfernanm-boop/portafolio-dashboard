@@ -234,7 +234,7 @@ a{color:inherit;text-decoration:none}
 <div id="page-portfolio" class="page">
   <div class="hero" style="padding-top:20px">
     <div class="hero-label">Posiciones activas</div>
-    <div style="font-size:1.6rem;font-weight:700" id="p-total">—</div>
+    <div class="hero-total" id="p-total">—</div>
     <div class="hero-meta">
       <div class="meta-item"><span class="meta-label">G/P</span><span class="meta-value" id="p-gp">—</span></div>
       <div class="meta-item"><span class="meta-label">Retorno</span><span class="meta-value" id="p-ret">—</span></div>
@@ -362,7 +362,7 @@ a{color:inherit;text-decoration:none}
     <span class="nav-icon">🏠</span><span>Inicio</span>
   </button>
   <button class="nav-item" id="nav-portfolio" onclick="navigate('portfolio')">
-    <span class="nav-icon">📈</span><span>PortFolio</span>
+    <span class="nav-icon">📈</span><span>Portfolio</span>
   </button>
   <button class="nav-item" id="nav-noticias" onclick="navigate('noticias')">
     <span class="nav-icon">📰</span><span>Noticias</span>
@@ -632,7 +632,7 @@ async function renderPortfolio(){
     retEl.textContent=fmtPct(resumen.retorno);
     retEl.className='meta-value '+cls(resumen.retorno);
     renderPosRows(posiciones);
-  } catch(e){ el.innerHTML='<div class="loading">Error al cargar posiciones.</div>'; }
+  } catch(e){ console.error('Portfolio:',e); el.innerHTML='<div class="loading">Error al cargar posiciones.</div>'; }
 }
 
 function renderPosRows(posiciones){
@@ -862,7 +862,7 @@ function fmtBig(n){
 function renderTV(ticker){
   const wrap=document.getElementById('tv-chart-wrap');
   wrap.innerHTML='';
-  const sym=TVXSYM[ticker]||ticker;
+  const sym=TV_SYM[ticker]||ticker;
   if(window.TradingView&&TradingView.widget){
     if(tvWidget){ try{tvWidget.remove();}catch(e){} }
     const cid='tv_'+Date.now();
@@ -871,7 +871,7 @@ function renderTV(ticker){
     wrap.appendChild(d);
     tvWidget=new TradingView.widget({autosize:true,symbol:sym,interval:'D',timezone:'America/New_York',theme:'dark',style:'1',locale:'es',toolbar_bg:'#161b22',enable_publishing:false,hide_top_toolbar:false,save_image:false,container_id:cid});
   } else {
-    wrap.innerHTML<`<div class="tradingview-widget-container" style="height:380px;width:100%"><div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>{"autosize":true,"symbol":"${sym}","interval":"D","timezone":"America/New_York","theme":"dark","style":"1","locale":"es","allow_symbol_change":false,"calendar":false}<\/script></div>`;
+    wrap.innerHTML=`<div class="tradingview-widget-container" style="height:380px;width:100%"><div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>{"autosize":true,"symbol":"${sym}","interval":"D","timezone":"America/New_York","theme":"dark","style":"1","locale":"es","allow_symbol_change":false,"calendar":false}<\/script></div>`;
   }
 }
 
@@ -899,7 +899,7 @@ async function fetchStockNews(ticker){
     if(!news.length){ el.innerHTML='<div class="loading">Sin noticias disponibles.</div>'; return; }
     el.innerHTML=news.map(n=>`<a class="news-link" href="${n.link}" target="_blank" rel="noopener noreferrer"><div class="news-item"><div class="news-title">${n.title}</div><div class="news-meta">${n.publisher} · ${relTime(n.providerPublishTime)}</div></div></a>`).join('');
   } catch(e){
-    el.innerHTML<`<div class="news-item"><div class="news-title" style="color:var(--muted)">No se pudieron cargar las noticias.</div><div class="news-meta"><a href="https://finance.yahoo.com/quote/${yf}/news" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div></div>`;
+    el.innerHTML=`<div class="news-item"><div class="news-title" style="color:var(--muted)">No se pudieron cargar las noticias.</div><div class="news-meta"><a href="https://finance.yahoo.com/quote/${yf}/news" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div></div>`;
   }
 }
 
@@ -979,7 +979,7 @@ async function renderIndices(){
 
   try {
     const symbols=INDICES_CONFIG.map(i=>i.sym).join(',');
-    const url=`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChangePercent,regularMarketChange,shortName,regularMarketTime`;
+    const url=`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&fields=regularMarketPrice,regularMarketChangePercent,regularMarketChange,shortName,regularMarketTime`;
     const j=await fetchYF(url);
     const quotes=j?.quoteResponse?.result||[];
 
