@@ -212,6 +212,13 @@ a{color:inherit;text-decoration:none}
   #idx-news-sheet.open{transform:translateX(-50%) translateY(0)}
 }
 
+/* ── TOP CORRELACIONES ── */
+.top-corr-title{font-size:.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 6px}
+.top-corr-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:.78rem}
+.top-corr-row:last-child{border-bottom:none}
+.top-corr-pair{font-weight:600;color:var(--text)}
+.top-corr-val{font-size:.75rem;font-weight:700;padding:2px 7px;border-radius:6px;color:#fff}
+
 /* ── HEATMAP ── */
 .heatmap-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .heatmap-table{border-collapse:collapse;width:100%;font-size:.65rem}
@@ -243,6 +250,8 @@ a{color:inherit;text-decoration:none}
   /* 2-col portfolio */
   #page-portfolio.active{display:grid;grid-template-columns:1fr 1fr;align-items:start}
   #page-portfolio .hero{grid-column:1/-1}
+  /* Alinear heatmap con primera fila de posiciones */
+  #sec-heatmap-pf{padding-top:32px}
 
   /* páginas con contenido simple: max-width centrado */
   #page-noticias,#page-indices,#page-stock{max-width:900px;margin:0 auto}
@@ -323,7 +332,10 @@ a{color:inherit;text-decoration:none}
 <!-- ====== PORTFOLIO ====== -->
 <div id="page-portfolio" class="page">
   <div class="hero" style="padding-top:20px">
-    <div class="hero-label">Posiciones activas</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div class="hero-label">Posiciones activas</div>
+      <button id="balance-toggle" onclick="toggleBalance()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.95rem;padding:2px 4px" title="Ocultar/mostrar balance">👁</button>
+    </div>
     <div class="hero-total" id="p-total">—</div>
     <div class="hero-meta">
       <div class="meta-item"><span class="meta-label">G/P</span><span class="meta-value" id="p-gp">—</span></div>
@@ -348,10 +360,9 @@ a{color:inherit;text-decoration:none}
       <div class="loading"><div class="spinner"></div>Cargando…</div>
     </div>
     <div class="heatmap-legend">
-      <span>−1</span>
-      <div class="hm-grad"></div>
-      <span>+1</span>
+      <span>−1</span><div class="hm-grad"></div><span>+1</span>
     </div>
+    <div id="top-corr-list"></div>
   </div>
 </div>
 
@@ -1506,10 +1517,54 @@ async function buildHeatmap(containerId) {
   html += '</tbody></table></div>';
   _heatmapHTML = html;
   el.innerHTML = html;
+
+  // Calcular top pares por correlación y renderizar lista
+  const listEl = document.getElementById('top-corr-list');
+  if (listEl) {
+    const pairs = [];
+    for (let i = 0; i < vt.length; i++)
+      for (let j = i+1; j < vt.length; j++) {
+        const r = pearson(returns[vt[i]], returns[vt[j]]);
+        if (r !== null) pairs.push({a:vt[i], b:vt[j], r});
+      }
+    pairs.sort((x,y) => Math.abs(y.r) - Math.abs(x.r));
+    const top = pairs.slice(0, 6);
+    let lhtml = '<div class="top-corr-title">Pares más correlacionados</div>';
+    top.forEach(({a, b, r}) => {
+      const bg = corrColor(r);
+      lhtml += `<div class="top-corr-row">
+        <span class="top-corr-pair">${a} · ${b}</span>
+        <span class="top-corr-val" style="background:${bg}">${r>=0?'+':''}${fmt(r,2)}</span>
+      </div>`;
+    });
+    listEl.innerHTML = lhtml;
+  }
 }
 
 async function renderAnalisis() {
   buildHeatmap('heatmap-container');
+}
+
+// ── BALANCE TOGGLE ─────────────────────────────────────────────
+let balanceHidden = false;
+const MASK = '••••••';
+function toggleBalance() {
+  balanceHidden = !balanceHidden;
+  const btn = document.getElementById('balance-toggle');
+  btn.textContent = balanceHidden ? '🙈' : '👁';
+  const ids = ['p-total','p-gp','p-ret'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (balanceHidden) {
+      el.dataset.real = el.textContent;
+      el.textContent = MASK;
+      el.style.filter = 'blur(6px)';
+    } else {
+      el.textContent = el.dataset.real || el.textContent;
+      el.style.filter = '';
+    }
+  });
 }
 
 // ── INIT ──────────────────────────────────────────────────────
