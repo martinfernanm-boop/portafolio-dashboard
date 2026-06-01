@@ -268,7 +268,14 @@ a{color:inherit;text-decoration:none}
     <span class="market-countdown" id="market-countdown"></span>
   </div>
   <div class="section" id="sec-evo">
-    <div class="section-title">Evolución del portafolio</div>
+    <div class="section-header">
+      <span class="section-title">Evolución del portafolio</span>
+      <div class="toggle-pill">
+        <button class="tpill-btn active" id="evo-port-btn" onclick="switchEvo('port')">Portafolio</button>
+        <button class="tpill-btn" id="evo-sp-btn" onclick="switchEvo('sp')">vs S&amp;P</button>
+        <button class="tpill-btn" id="evo-ndx-btn" onclick="switchEvo('ndx')">vs Nasdaq</button>
+      </div>
+    </div>
     <div class="chart-box"><canvas id="evo-chart" height="150"></canvas></div>
   </div>
   <div class="section" id="sec-donut">
@@ -333,6 +340,17 @@ a{color:inherit;text-decoration:none}
     </div>
     <div class="card" id="pos-list">
       <div class="loading"><div class="spinner"></div>Cargando…</div>
+    </div>
+  </div>
+  <div class="section" id="sec-heatmap-pf">
+    <div class="section-title">Correlación de activos — 90 días</div>
+    <div class="card" id="heatmap-pf-container">
+      <div class="loading"><div class="spinner"></div>Cargando…</div>
+    </div>
+    <div class="heatmap-legend">
+      <span>−1</span>
+      <div class="hm-grad"></div>
+      <span>+1</span>
     </div>
   </div>
 </div>
@@ -756,60 +774,77 @@ function buildDonut(pos){
   });
 }
 
+// evoMode: 'port' | 'sp' | 'ndx'
+let evoMode='port', evoSlice=null, evoBenchData={sp500:null,ixic:null};
+
 async function buildEvo(){
   try {
     const {historial}=await get('historial');
     if(!historial||!historial.length) return;
-    const slice=historial.slice(-60);
-    const labels=slice.map(h=>{ const d=new Date(h.fecha); return isNaN(d.getTime())?String(h.fecha).slice(0,7):d.toLocaleDateString('es-CL',{month:'short',year:'2-digit'}); });
+    evoSlice=historial.slice(-60);
 
-    // Normalizar portafolio a base 100
-    const base=slice[0].valor;
-    const portData=slice.map(h=>parseFloat(fmt(h.valor/base*100,2)));
-
-    // Obtener benchmarks de Yahoo Finance (mismo rango que historial)
-    const rangeMonths=Math.ceil(slice.length/4.3);
+    // Pre-fetch benchmarks en background para que estén listos al cambiar modo
+    const rangeMonths=Math.ceil(evoSlice.length/4.3);
     const range=rangeMonths<=3?'3mo':rangeMonths<=6?'6mo':rangeMonths<=12?'1y':'2y';
-    const benchData={sp500:null,ixic:null};
-    try {
-      const [jSP,jIX]=await Promise.all([
-        fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?interval=1wk&range=${range}`),
-        fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/%5EIXIC?interval=1wk&range=${range}`)
-      ]);
+    Promise.all([
+      fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?interval=1wk&range=${range}`),
+      fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/%5EIXIC?interval=1wk&range=${range}`)
+    ]).then(([jSP,jIX])=>{
       for(const [key,j] of [['sp500',jSP],['ixic',jIX]]){
         const closes=j?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
-        if(!closes||!closes.length) continue;
+        if(!closes) continue;
         const valid=closes.filter(v=>v!=null);
         const b0=valid[0];
-        // Resamplear al mismo número de puntos que slice interpolando índices
-        const sampled=slice.map((_,i)=>{
-          const idx=Math.round(i/(slice.length-1)*(valid.length-1));
+        evoBenchData[key]=evoSlice.map((_,i)=>{
+          const idx=Math.round(i/(evoSlice.length-1)*(valid.length-1));
           return parseFloat(fmt(valid[idx]/b0*100,2));
         });
-        benchData[key]=sampled;
       }
-    } catch(e){ console.warn('Benchmarks YF:',e.message); }
+    }).catch(()=>{});
 
-    const ctx=document.getElementById('evo-chart').getContext('2d');
-    if(evoChart) evoChart.destroy();
+    renderEvoChart();
+  } catch(e){ console.error('Evo:',e); }
+}
+
+function renderEvoChart(){
+  if(!evoSlice) return;
+  const labels=evoSlice.map(h=>{ const d=new Date(h.fecha); return isNaN(d.getTime())?String(h.fecha).slice(0,7):d.toLocaleDateString('es-CL',{month:'short',year:'2-digit'}); });
+  const ctx=document.getElementById('evo-chart').getContext('2d');
+  if(evoChart) evoChart.destroy();
+
+  if(evoMode==='port'){
+    // Modo default: valor USD real
     const grad=ctx.createLinearGradient(0,0,0,150);
-    grad.addColorStop(0,'rgba(88,166,255,.25)'); grad.addColorStop(1,'rgba(88,166,255,0)');
-
-    const datasets=[
-      {label:'Mi portafolio',data:portData,borderColor:'#58a6ff',borderWidth:2,fill:true,backgroundColor:grad,pointRadius:0,tension:.3},
-    ];
-    if(benchData.sp500) datasets.push({label:'S&P 500',data:benchData.sp500,borderColor:'#f97316',borderWidth:1.5,fill:false,pointRadius:0,tension:.3,borderDash:[4,3]});
-    if(benchData.ixic)  datasets.push({label:'Nasdaq',data:benchData.ixic,borderColor:'#a78bfa',borderWidth:1.5,fill:false,pointRadius:0,tension:.3,borderDash:[4,3]});
-
+    grad.addColorStop(0,'rgba(88,166,255,.3)'); grad.addColorStop(1,'rgba(88,166,255,0)');
+    evoChart=new Chart(ctx,{type:'line',data:{labels,datasets:[{data:evoSlice.map(h=>h.valor),borderColor:'#58a6ff',borderWidth:2,fill:true,backgroundColor:grad,pointRadius:0,tension:.3}]},
+      options:{responsive:true,interaction:{intersect:false,mode:'index'},
+        plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>c[0].label,label:c=>' '+usd(c.raw)}}},
+        scales:{x:{ticks:{color:'#7d8590',maxTicksLimit:6,font:{size:10}},grid:{color:'#21262d'}},
+                y:{ticks:{color:'#7d8590',font:{size:10},callback:v=>'$'+fmt(v,0)},grid:{color:'#21262d'}}}}});
+  } else {
+    // Modo benchmark: base 100
+    const base=evoSlice[0].valor;
+    const portData=evoSlice.map(h=>parseFloat(fmt(h.valor/base*100,2)));
+    const isSP=evoMode==='sp';
+    const benchKey=isSP?'sp500':'ixic';
+    const benchColor=isSP?'#f97316':'#a78bfa';
+    const benchLabel=isSP?'S&P 500':'Nasdaq';
+    const benchArr=evoBenchData[benchKey];
+    const datasets=[{label:'Mi portafolio',data:portData,borderColor:'#58a6ff',borderWidth:2,fill:false,pointRadius:0,tension:.3}];
+    if(benchArr) datasets.push({label:benchLabel,data:benchArr,borderColor:benchColor,borderWidth:1.5,fill:false,pointRadius:0,tension:.3,borderDash:[4,3]});
     evoChart=new Chart(ctx,{type:'line',data:{labels,datasets},
       options:{responsive:true,interaction:{intersect:false,mode:'index'},
-        plugins:{
-          legend:{display:datasets.length>1,position:'top',labels:{color:'#7d8590',font:{size:10},boxWidth:12,padding:8}},
-          tooltip:{callbacks:{title:c=>c[0].label,label:c=>(c.dataset.label||'')+': '+fmt(c.raw,1)+'%'}}
-        },
+        plugins:{legend:{display:true,position:'top',labels:{color:'#7d8590',font:{size:10},boxWidth:12,padding:8}},
+                 tooltip:{callbacks:{title:c=>c[0].label,label:c=>(c.dataset.label||'')+': '+fmt(c.raw,1)+'%'}}},
         scales:{x:{ticks:{color:'#7d8590',maxTicksLimit:6,font:{size:10}},grid:{color:'#21262d'}},
                 y:{ticks:{color:'#7d8590',font:{size:10},callback:v=>v+'%'},grid:{color:'#21262d'}}}}});
-  } catch(e){ console.error('Evo:',e); }
+  }
+}
+
+function switchEvo(mode){
+  evoMode=mode;
+  ['port','sp','ndx'].forEach(m=>document.getElementById('evo-'+m+'-btn')?.classList.toggle('active',m===mode));
+  renderEvoChart();
 }
 
 // ── PORTFOLIO ─────────────────────────────────────────────────
@@ -826,6 +861,7 @@ async function renderPortfolio(){
     retEl.textContent=fmtPct(resumen.retorno);
     retEl.className='meta-value '+cls(resumen.retorno);
     renderPosRows(posiciones);
+    buildHeatmap('heatmap-pf-container');
   } catch(e){ console.error('Portfolio:',e); el.innerHTML='<div class="loading">Error al cargar posiciones.</div>'; }
 }
 
@@ -1421,34 +1457,51 @@ document.querySelector('.chat-header').addEventListener('dblclick',()=>{
 });
 
 // ── ANÁLISIS / HEATMAP ────────────────────────────────────────
-let heatmapBuilt = false;
-async function renderAnalisis() {
-  if (heatmapBuilt) return;
-  const el = document.getElementById('heatmap-container');
+// Cache compartido del heatmap para no re-fetchear si ya se cargó
+let _heatmapHTML = null;
 
-  // Obtener tickers del portafolio
+function pearson(a, b) {
+  const n = Math.min(a.length, b.length);
+  if (n < 5) return null;
+  const ax = a.slice(-n), bx = b.slice(-n);
+  const ma = ax.reduce((s,v)=>s+v,0)/n, mb = bx.reduce((s,v)=>s+v,0)/n;
+  let num=0, da=0, db=0;
+  for(let i=0;i<n;i++){const ai=ax[i]-ma,bi=bx[i]-mb; num+=ai*bi; da+=ai*ai; db+=bi*bi;}
+  return (da&&db) ? num/Math.sqrt(da*db) : null;
+}
+
+function corrColor(r) {
+  if (r === null) return 'var(--surface2)';
+  const t = (r + 1) / 2;
+  if (t < 0.5) {
+    const f = t * 2;
+    return `rgb(${Math.round(248-(248-33)*f)},${Math.round(81-(81-110)*f)},${Math.round(73+(110-73)*f)})`;
+  } else {
+    const f = (t - 0.5) * 2;
+    return `rgb(${Math.round(33+(63-33)*f)},${Math.round(110+(185-110)*f)},${Math.round(110+(80-110)*f)})`;
+  }
+}
+
+async function buildHeatmap(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (_heatmapHTML) { el.innerHTML = _heatmapHTML; return; }
+
   let tickers = [];
   try {
     const {posiciones} = await get('portafolio');
     tickers = posiciones.map(p => p.ticker);
-  } catch(e) {
-    el.innerHTML = '<div class="loading">Error al obtener posiciones.</div>'; return;
-  }
+  } catch(e) { el.innerHTML = '<div class="loading">Error al obtener posiciones.</div>'; return; }
   if (!tickers.length) { el.innerHTML = '<div class="loading">Sin posiciones.</div>'; return; }
 
-  // Fetch precios diarios 90 días para cada ticker (paralelo)
   const yfSym = t => t === 'QUINENCO' ? 'QUINENCO.SN' : t;
   let results;
   try {
     results = await Promise.all(tickers.map(t =>
-      fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yfSym(t))}?interval=1d&range=3mo`)
-        .catch(() => null)
+      fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yfSym(t))}?interval=1d&range=3mo`).catch(()=>null)
     ));
-  } catch(e) {
-    el.innerHTML = '<div class="loading">Error al obtener datos.</div>'; return;
-  }
+  } catch(e) { el.innerHTML = '<div class="loading">Error al obtener datos.</div>'; return; }
 
-  // Extraer retornos diarios por ticker
   const returns = {};
   tickers.forEach((t, i) => {
     const closes = results[i]?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
@@ -1457,54 +1510,30 @@ async function renderAnalisis() {
     returns[t] = valid.slice(1).map((v, j) => (v - valid[j]) / valid[j]);
   });
 
-  const validTickers = tickers.filter(t => returns[t]);
-  if (validTickers.length < 2) {
-    el.innerHTML = '<div class="loading">Datos insuficientes.</div>'; return;
-  }
+  const vt = tickers.filter(t => returns[t]);
+  if (vt.length < 2) { el.innerHTML = '<div class="loading">Datos insuficientes.</div>'; return; }
 
-  // Pearson correlation
-  function pearson(a, b) {
-    const n = Math.min(a.length, b.length);
-    if (n < 5) return null;
-    const ax = a.slice(-n), bx = b.slice(-n);
-    const ma = ax.reduce((s,v)=>s+v,0)/n, mb = bx.reduce((s,v)=>s+v,0)/n;
-    let num=0, da=0, db=0;
-    for(let i=0;i<n;i++){const ai=ax[i]-ma,bi=bx[i]-mb; num+=ai*bi; da+=ai*ai; db+=bi*bi;}
-    return (da&&db) ? num/Math.sqrt(da*db) : null;
-  }
-
-  // Interpolate color: -1=red, 0=neutral, +1=green
-  function corrColor(r) {
-    if (r === null) return 'var(--surface2)';
-    const t = (r + 1) / 2; // 0..1
-    if (t < 0.5) {
-      const f = t * 2;
-      return `rgb(${Math.round(248-(248-33)*f)},${Math.round(81-(81-110)*f)},${Math.round(73+(110-73)*f)})`;
-    } else {
-      const f = (t - 0.5) * 2;
-      return `rgb(${Math.round(33+(63-33)*f)},${Math.round(110+(185-110)*f)},${Math.round(110+(80-110)*f)})`;
-    }
-  }
-
-  // Render tabla
   let html = '<div class="heatmap-wrap"><table class="heatmap-table"><thead><tr><th></th>';
-  validTickers.forEach(t => { html += `<th title="${t}">${t.length>6?t.slice(0,5)+'…':t}</th>`; });
+  vt.forEach(t => { html += `<th title="${t}">${t.length>6?t.slice(0,5)+'…':t}</th>`; });
   html += '</tr></thead><tbody>';
-  validTickers.forEach(row => {
+  vt.forEach(row => {
     html += `<tr><th>${row.length>6?row.slice(0,5)+'…':row}</th>`;
-    validTickers.forEach(col => {
-      if (row === col) { html += `<td class="hm-diag">1.00</td>`; return; }
+    vt.forEach(col => {
+      if (row===col) { html += `<td class="hm-diag">1.00</td>`; return; }
       const r = pearson(returns[row], returns[col]);
-      const bg = corrColor(r);
-      const val = r !== null ? fmt(r, 2) : '—';
-      const textColor = r !== null && Math.abs(r) > 0.3 ? '#fff' : 'var(--text)';
-      html += `<td style="background:${bg};color:${textColor}">${val}</td>`;
+      const val = r!==null ? fmt(r,2) : '—';
+      const textColor = r!==null && Math.abs(r)>0.3 ? '#fff' : 'var(--text)';
+      html += `<td style="background:${corrColor(r)};color:${textColor}">${val}</td>`;
     });
     html += '</tr>';
   });
   html += '</tbody></table></div>';
+  _heatmapHTML = html;
   el.innerHTML = html;
-  heatmapBuilt = true;
+}
+
+async function renderAnalisis() {
+  buildHeatmap('heatmap-container');
 }
 
 // ── INIT ──────────────────────────────────────────────────────
