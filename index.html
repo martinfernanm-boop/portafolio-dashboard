@@ -698,13 +698,54 @@ async function buildEvo(){
     const {historial}=await get('historial');
     if(!historial||!historial.length) return;
     const slice=historial.slice(-60);
+    const labels=slice.map(h=>{ const d=new Date(h.fecha); return isNaN(d.getTime())?String(h.fecha).slice(0,7):d.toLocaleDateString('es-CL',{month:'short',year:'2-digit'}); });
+
+    // Normalizar portafolio a base 100
+    const base=slice[0].valor;
+    const portData=slice.map(h=>parseFloat(fmt(h.valor/base*100,2)));
+
+    // Obtener benchmarks de Yahoo Finance (mismo rango que historial)
+    const rangeMonths=Math.ceil(slice.length/4.3);
+    const range=rangeMonths<=3?'3mo':rangeMonths<=6?'6mo':rangeMonths<=12?'1y':'2y';
+    const benchData={sp500:null,ixic:null};
+    try {
+      const [jSP,jIX]=await Promise.all([
+        fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?interval=1wk&range=${range}`),
+        fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/%5EIXIC?interval=1wk&range=${range}`)
+      ]);
+      for(const [key,j] of [['sp500',jSP],['ixic',jIX]]){
+        const closes=j?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+        if(!closes||!closes.length) continue;
+        const valid=closes.filter(v=>v!=null);
+        const b0=valid[0];
+        // Resamplear al mismo número de puntos que slice interpolando índices
+        const sampled=slice.map((_,i)=>{
+          const idx=Math.round(i/(slice.length-1)*(valid.length-1));
+          return parseFloat(fmt(valid[idx]/b0*100,2));
+        });
+        benchData[key]=sampled;
+      }
+    } catch(e){ console.warn('Benchmarks YF:',e.message); }
+
     const ctx=document.getElementById('evo-chart').getContext('2d');
     if(evoChart) evoChart.destroy();
     const grad=ctx.createLinearGradient(0,0,0,150);
-    grad.addColorStop(0,'rgba(88,166,255,.3)'); grad.addColorStop(1,'rgba(88,166,255,0)');
-    evoChart=new Chart(ctx,{type:'line',data:{labels:slice.map(h=>{ const d=new Date(h.fecha); return isNaN(d.getTime())?String(h.fecha).slice(0,7):d.toLocaleDateString('es-CL',{month:'short',year:'2-digit'}); }),datasets:[{data:slice.map(h=>h.valor),borderColor:'#58a6ff',borderWidth:2,fill:true,backgroundColor:grad,pointRadius:0,tension:.3}]},
-      options:{responsive:true,interaction:{intersect:false,mode:'index'},plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>c[0].label,label:c=>' '+usd(c.raw)}}},
-        scales:{x:{ticks:{color:'#7d8590',maxTicksLimit:6,font:{size:10}},grid:{color:'#21262d'}},y:{ticks:{color:'#7d8590',font:{size:10},callback:v=>'$'+fmt(v,0)},grid:{color:'#21262d'}}}}});
+    grad.addColorStop(0,'rgba(88,166,255,.25)'); grad.addColorStop(1,'rgba(88,166,255,0)');
+
+    const datasets=[
+      {label:'Mi portafolio',data:portData,borderColor:'#58a6ff',borderWidth:2,fill:true,backgroundColor:grad,pointRadius:0,tension:.3},
+    ];
+    if(benchData.sp500) datasets.push({label:'S&P 500',data:benchData.sp500,borderColor:'#f97316',borderWidth:1.5,fill:false,pointRadius:0,tension:.3,borderDash:[4,3]});
+    if(benchData.ixic)  datasets.push({label:'Nasdaq',data:benchData.ixic,borderColor:'#a78bfa',borderWidth:1.5,fill:false,pointRadius:0,tension:.3,borderDash:[4,3]});
+
+    evoChart=new Chart(ctx,{type:'line',data:{labels,datasets},
+      options:{responsive:true,interaction:{intersect:false,mode:'index'},
+        plugins:{
+          legend:{display:datasets.length>1,position:'top',labels:{color:'#7d8590',font:{size:10},boxWidth:12,padding:8}},
+          tooltip:{callbacks:{title:c=>c[0].label,label:c=>(c.dataset.label||'')+': '+fmt(c.raw,1)+'%'}}
+        },
+        scales:{x:{ticks:{color:'#7d8590',maxTicksLimit:6,font:{size:10}},grid:{color:'#21262d'}},
+                y:{ticks:{color:'#7d8590',font:{size:10},callback:v=>v+'%'},grid:{color:'#21262d'}}}}});
   } catch(e){ console.error('Evo:',e); }
 }
 
