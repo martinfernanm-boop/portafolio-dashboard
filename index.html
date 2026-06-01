@@ -245,7 +245,7 @@ a{color:inherit;text-decoration:none}
   #page-portfolio .hero{grid-column:1/-1}
 
   /* páginas con contenido simple: max-width centrado */
-  #page-noticias,#page-indices,#page-stock,#page-analisis{max-width:900px;margin:0 auto}
+  #page-noticias,#page-indices,#page-stock{max-width:900px;margin:0 auto}
 }
 </style>
 </head>
@@ -457,27 +457,6 @@ a{color:inherit;text-decoration:none}
   </div>
 </div>
 
-<!-- ====== ANÁLISIS ====== -->
-<div id="page-analisis" class="page">
-  <div class="hero" style="padding-top:20px">
-    <div class="hero-label">🔬 Análisis</div>
-    <div style="font-size:1.1rem;font-weight:700;margin-top:6px">Correlación de activos</div>
-  </div>
-  <div class="section">
-    <div class="section-header">
-      <span class="section-title">Heatmap — últimos 90 días</span>
-    </div>
-    <div class="card" id="heatmap-container">
-      <div class="loading"><div class="spinner"></div>Cargando…</div>
-    </div>
-    <div class="heatmap-legend">
-      <span>−1</span>
-      <div class="hm-grad"></div>
-      <span>+1</span>
-      <span style="margin-left:8px;color:var(--muted);font-size:.67rem">Correlación de retornos diarios</span>
-    </div>
-  </div>
-</div>
 
 <!-- ====== NAV ====== -->
 <nav class="nav-bar">
@@ -493,9 +472,6 @@ a{color:inherit;text-decoration:none}
   </button>
   <button class="nav-item" id="nav-indices" onclick="navigate('indices')">
     <span class="nav-icon">🌐</span><span>Índices</span>
-  </button>
-  <button class="nav-item" id="nav-analisis" onclick="navigate('analisis')">
-    <span class="nav-icon">🔬</span><span>Análisis</span>
   </button>
 </nav>
 
@@ -644,7 +620,6 @@ function navigate(page, extra) {
   if(page==='indices')   renderIndices();
   if(page==='stock')     renderStock(extra);
   if(page==='noticias')  renderNoticias();
-  if(page==='analisis')  renderAnalisis();
 }
 function goBack(){ navigate(prevPage||'portfolio'); }
 function openStock(ticker){
@@ -797,7 +772,7 @@ async function buildEvo(){
         const b0=valid[0];
         evoBenchData[key]=evoSlice.map((_,i)=>{
           const idx=Math.round(i/(evoSlice.length-1)*(valid.length-1));
-          return parseFloat(fmt(valid[idx]/b0*100,2));
+          return parseFloat(fmt((valid[idx]-b0)/b0*100,2));
         });
       }
     }).catch(()=>{});
@@ -822,9 +797,9 @@ function renderEvoChart(){
         scales:{x:{ticks:{color:'#7d8590',maxTicksLimit:6,font:{size:10}},grid:{color:'#21262d'}},
                 y:{ticks:{color:'#7d8590',font:{size:10},callback:v=>'$'+fmt(v,0)},grid:{color:'#21262d'}}}}});
   } else {
-    // Modo benchmark: base 100
+    // Modo benchmark: retorno % desde 0
     const base=evoSlice[0].valor;
-    const portData=evoSlice.map(h=>parseFloat(fmt(h.valor/base*100,2)));
+    const portData=evoSlice.map(h=>parseFloat(fmt((h.valor-base)/base*100,2)));
     const isSP=evoMode==='sp';
     const benchKey=isSP?'sp500':'ixic';
     const benchColor=isSP?'#f97316':'#a78bfa';
@@ -832,12 +807,13 @@ function renderEvoChart(){
     const benchArr=evoBenchData[benchKey];
     const datasets=[{label:'Mi portafolio',data:portData,borderColor:'#58a6ff',borderWidth:2,fill:false,pointRadius:0,tension:.3}];
     if(benchArr) datasets.push({label:benchLabel,data:benchArr,borderColor:benchColor,borderWidth:1.5,fill:false,pointRadius:0,tension:.3,borderDash:[4,3]});
+    const signedPct = v => (v>=0?'+':'')+fmt(v,1)+'%';
     evoChart=new Chart(ctx,{type:'line',data:{labels,datasets},
       options:{responsive:true,interaction:{intersect:false,mode:'index'},
         plugins:{legend:{display:true,position:'top',labels:{color:'#7d8590',font:{size:10},boxWidth:12,padding:8}},
-                 tooltip:{callbacks:{title:c=>c[0].label,label:c=>(c.dataset.label||'')+': '+fmt(c.raw,1)+'%'}}},
+                 tooltip:{callbacks:{title:c=>c[0].label,label:c=>(c.dataset.label||'')+': '+signedPct(c.raw)}}},
         scales:{x:{ticks:{color:'#7d8590',maxTicksLimit:6,font:{size:10}},grid:{color:'#21262d'}},
-                y:{ticks:{color:'#7d8590',font:{size:10},callback:v=>v+'%'},grid:{color:'#21262d'}}}}});
+                y:{ticks:{color:'#7d8590',font:{size:10},callback:v=>(v>=0?'+':'')+v+'%'},grid:{color:'#21262d'}}}}});
   }
 }
 
