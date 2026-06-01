@@ -263,7 +263,20 @@ a{color:inherit;text-decoration:none}
 <!-- ====== HOME ====== -->
 <div id="page-home" class="page active">
   <div class="hero">
-    <div class="hero-label">📊 Mi Portafolio</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div class="hero-label">📊 Mi Portafolio</div>
+      <button id="balance-toggle" onclick="toggleBalance()" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:2px 4px;line-height:0" title="Ocultar/mostrar balance">
+        <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        <svg id="eye-off-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+          <line x1="1" y1="1" x2="23" y2="23"/>
+        </svg>
+      </button>
+    </div>
     <div class="hero-total" id="h-total">—</div>
     <div class="hero-meta">
       <div class="meta-item"><span class="meta-label">Ganancia</span><span class="meta-value" id="h-gp">—</span></div>
@@ -332,10 +345,7 @@ a{color:inherit;text-decoration:none}
 <!-- ====== PORTFOLIO ====== -->
 <div id="page-portfolio" class="page">
   <div class="hero" style="padding-top:20px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-      <div class="hero-label">Posiciones activas</div>
-      <button id="balance-toggle" onclick="toggleBalance()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.95rem;padding:2px 4px" title="Ocultar/mostrar balance">👁</button>
-    </div>
+    <div class="hero-label">Posiciones activas</div>
     <div class="hero-total" id="p-total">—</div>
     <div class="hero-meta">
       <div class="meta-item"><span class="meta-label">G/P</span><span class="meta-value" id="p-gp">—</span></div>
@@ -1547,22 +1557,21 @@ async function renderAnalisis() {
 
 // ── BALANCE TOGGLE ─────────────────────────────────────────────
 let balanceHidden = false;
-const MASK = '••••••';
 function toggleBalance() {
   balanceHidden = !balanceHidden;
-  const btn = document.getElementById('balance-toggle');
-  btn.textContent = balanceHidden ? '🙈' : '👁';
-  const ids = ['p-total','p-gp','p-ret'];
-  ids.forEach(id => {
+  document.getElementById('eye-icon').style.display    = balanceHidden ? 'none'  : '';
+  document.getElementById('eye-off-icon').style.display = balanceHidden ? ''     : 'none';
+  // IDs en Home y Portfolio
+  ['h-total','h-gp','h-ret','h-caja','p-total','p-gp','p-ret'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     if (balanceHidden) {
       el.dataset.real = el.textContent;
-      el.textContent = MASK;
-      el.style.filter = 'blur(6px)';
+      el.style.filter = 'blur(7px)';
+      el.style.userSelect = 'none';
     } else {
-      el.textContent = el.dataset.real || el.textContent;
       el.style.filter = '';
+      el.style.userSelect = '';
     }
   });
 }
