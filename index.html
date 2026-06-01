@@ -204,12 +204,48 @@ a{color:inherit;text-decoration:none}
 .qchip{background:var(--surface2);border:1px solid var(--border);border-radius:16px;padding:5px 12px;font-size:.72rem;color:var(--muted);cursor:pointer;transition:border-color .15s}
 .qchip:hover{border-color:var(--blue);color:var(--text)}
 
-@media(min-width:640px){body{max-width:500px;margin:0 auto}
+@media(min-width:640px) and (max-width:899px){body{max-width:500px;margin:0 auto}
   #chat-panel{left:50%;transform:translateX(-50%) translateY(100%);width:500px;right:auto}
   #chat-panel.open{transform:translateX(-50%) translateY(0)}
   #chat-fab{right:calc(50% - 484px + 16px)}
   #idx-news-sheet{left:50%;transform:translateX(-50%) translateY(100%);width:500px;right:auto}
   #idx-news-sheet.open{transform:translateX(-50%) translateY(0)}
+}
+
+/* ── HEATMAP ── */
+.heatmap-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.heatmap-table{border-collapse:collapse;width:100%;font-size:.65rem}
+.heatmap-table th,.heatmap-table td{padding:5px 4px;text-align:center;white-space:nowrap;border:1px solid var(--border)}
+.heatmap-table th{color:var(--muted);font-weight:600;background:var(--surface);font-size:.63rem}
+.heatmap-table td{font-weight:600;font-size:.68rem;min-width:36px}
+.hm-diag{background:var(--surface2)!important;color:var(--muted)!important}
+.heatmap-legend{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.7rem;color:var(--muted)}
+.hm-grad{height:10px;flex:1;border-radius:4px;background:linear-gradient(to right,#f85149,var(--surface2),#3fb950)}
+
+/* ── DESKTOP (≥900px) ── */
+@media(min-width:900px){
+  body{padding-bottom:0;padding-left:220px}
+  .nav-bar{width:220px;height:100vh;flex-direction:column;border-right:1px solid var(--border);border-top:none;right:auto;padding:0 0 16px;justify-content:flex-start;gap:2px;overflow-y:auto}
+  .nav-brand{display:flex!important;align-items:center;gap:8px;padding:20px 20px 16px;font-size:.9rem;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);margin-bottom:8px}
+  .nav-item{flex:0 0 auto;flex-direction:row;justify-content:flex-start;gap:10px;padding:10px 20px;font-size:.83rem;border-radius:8px;margin:0 8px;width:auto}
+  .nav-icon{font-size:1rem}
+
+  /* content panels */
+  #chat-panel{left:220px;width:calc(100vw - 220px);right:0}
+  #idx-news-sheet{left:220px;width:calc(100vw - 220px);right:0}
+  #chat-fab{right:24px;bottom:24px}
+
+  /* 2-col home */
+  #page-home.active{display:grid;grid-template-columns:1fr 1fr;align-items:start}
+  #page-home .hero,#page-home .market-banner,#page-home .status-bar{grid-column:1/-1}
+  #sec-platforms{grid-column:1/-1}
+
+  /* 2-col portfolio */
+  #page-portfolio.active{display:grid;grid-template-columns:1fr 1fr;align-items:start}
+  #page-portfolio .hero{grid-column:1/-1}
+
+  /* páginas con contenido simple: max-width centrado */
+  #page-noticias,#page-indices,#page-stock,#page-analisis{max-width:900px;margin:0 auto}
 }
 </style>
 </head>
@@ -231,11 +267,11 @@ a{color:inherit;text-decoration:none}
     <span id="market-status-text">—</span>
     <span class="market-countdown" id="market-countdown"></span>
   </div>
-  <div class="section">
+  <div class="section" id="sec-evo">
     <div class="section-title">Evolución del portafolio</div>
     <div class="chart-box"><canvas id="evo-chart" height="150"></canvas></div>
   </div>
-  <div class="section">
+  <div class="section" id="sec-donut">
     <div class="section-header">
       <span class="section-title">Composición</span>
       <div class="toggle-pill">
@@ -245,7 +281,7 @@ a{color:inherit;text-decoration:none}
     </div>
     <div class="chart-box"><canvas id="donut-chart" height="250"></canvas></div>
   </div>
-  <div class="section">
+  <div class="section" id="sec-platforms">
     <div class="section-title">Mis plataformas</div>
     <div class="platform-grid">
       <a href="https://www.etoro.com/home" target="_blank" rel="noopener" class="platform-btn">
@@ -287,7 +323,7 @@ a{color:inherit;text-decoration:none}
       <div class="meta-item"><span class="meta-label">Retorno</span><span class="meta-value" id="p-ret">—</span></div>
     </div>
   </div>
-  <div class="section">
+  <div class="section" id="sec-posiciones">
     <div class="section-header">
       <span class="section-title">Posiciones</span>
       <div class="toggle-pill">
@@ -403,8 +439,31 @@ a{color:inherit;text-decoration:none}
   </div>
 </div>
 
-<!-- ====== BOTTOM NAV ====== -->
+<!-- ====== ANÁLISIS ====== -->
+<div id="page-analisis" class="page">
+  <div class="hero" style="padding-top:20px">
+    <div class="hero-label">🔬 Análisis</div>
+    <div style="font-size:1.1rem;font-weight:700;margin-top:6px">Correlación de activos</div>
+  </div>
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">Heatmap — últimos 90 días</span>
+    </div>
+    <div class="card" id="heatmap-container">
+      <div class="loading"><div class="spinner"></div>Cargando…</div>
+    </div>
+    <div class="heatmap-legend">
+      <span>−1</span>
+      <div class="hm-grad"></div>
+      <span>+1</span>
+      <span style="margin-left:8px;color:var(--muted);font-size:.67rem">Correlación de retornos diarios</span>
+    </div>
+  </div>
+</div>
+
+<!-- ====== NAV ====== -->
 <nav class="nav-bar">
+  <div class="nav-brand" style="display:none">📊 <span>Mi Portafolio</span></div>
   <button class="nav-item active" id="nav-home" onclick="navigate('home')">
     <span class="nav-icon">🏠</span><span>Inicio</span>
   </button>
@@ -416,6 +475,9 @@ a{color:inherit;text-decoration:none}
   </button>
   <button class="nav-item" id="nav-indices" onclick="navigate('indices')">
     <span class="nav-icon">🌐</span><span>Índices</span>
+  </button>
+  <button class="nav-item" id="nav-analisis" onclick="navigate('analisis')">
+    <span class="nav-icon">🔬</span><span>Análisis</span>
   </button>
 </nav>
 
@@ -564,6 +626,7 @@ function navigate(page, extra) {
   if(page==='indices')   renderIndices();
   if(page==='stock')     renderStock(extra);
   if(page==='noticias')  renderNoticias();
+  if(page==='analisis')  renderAnalisis();
 }
 function goBack(){ navigate(prevPage||'portfolio'); }
 function openStock(ticker){
@@ -1356,6 +1419,93 @@ document.querySelector('.chat-header').addEventListener('dblclick',()=>{
   const k=prompt('Nueva API key (Groq: gsk_… o Gemini: AIza…). Deja vacío para cancelar:');
   if(k&&(k.startsWith('AIza')||k.startsWith('gsk_'))){ geminiKey=k; localStorage.setItem('gemini_api_key',k); alert('API key actualizada ✓'); }
 });
+
+// ── ANÁLISIS / HEATMAP ────────────────────────────────────────
+let heatmapBuilt = false;
+async function renderAnalisis() {
+  if (heatmapBuilt) return;
+  const el = document.getElementById('heatmap-container');
+
+  // Obtener tickers del portafolio
+  let tickers = [];
+  try {
+    const {posiciones} = await get('portafolio');
+    tickers = posiciones.map(p => p.ticker);
+  } catch(e) {
+    el.innerHTML = '<div class="loading">Error al obtener posiciones.</div>'; return;
+  }
+  if (!tickers.length) { el.innerHTML = '<div class="loading">Sin posiciones.</div>'; return; }
+
+  // Fetch precios diarios 90 días para cada ticker (paralelo)
+  const yfSym = t => t === 'QUINENCO' ? 'QUINENCO.SN' : t;
+  let results;
+  try {
+    results = await Promise.all(tickers.map(t =>
+      fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yfSym(t))}?interval=1d&range=3mo`)
+        .catch(() => null)
+    ));
+  } catch(e) {
+    el.innerHTML = '<div class="loading">Error al obtener datos.</div>'; return;
+  }
+
+  // Extraer retornos diarios por ticker
+  const returns = {};
+  tickers.forEach((t, i) => {
+    const closes = results[i]?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+    if (!closes || closes.length < 5) return;
+    const valid = closes.filter(v => v != null);
+    returns[t] = valid.slice(1).map((v, j) => (v - valid[j]) / valid[j]);
+  });
+
+  const validTickers = tickers.filter(t => returns[t]);
+  if (validTickers.length < 2) {
+    el.innerHTML = '<div class="loading">Datos insuficientes.</div>'; return;
+  }
+
+  // Pearson correlation
+  function pearson(a, b) {
+    const n = Math.min(a.length, b.length);
+    if (n < 5) return null;
+    const ax = a.slice(-n), bx = b.slice(-n);
+    const ma = ax.reduce((s,v)=>s+v,0)/n, mb = bx.reduce((s,v)=>s+v,0)/n;
+    let num=0, da=0, db=0;
+    for(let i=0;i<n;i++){const ai=ax[i]-ma,bi=bx[i]-mb; num+=ai*bi; da+=ai*ai; db+=bi*bi;}
+    return (da&&db) ? num/Math.sqrt(da*db) : null;
+  }
+
+  // Interpolate color: -1=red, 0=neutral, +1=green
+  function corrColor(r) {
+    if (r === null) return 'var(--surface2)';
+    const t = (r + 1) / 2; // 0..1
+    if (t < 0.5) {
+      const f = t * 2;
+      return `rgb(${Math.round(248-(248-33)*f)},${Math.round(81-(81-110)*f)},${Math.round(73+(110-73)*f)})`;
+    } else {
+      const f = (t - 0.5) * 2;
+      return `rgb(${Math.round(33+(63-33)*f)},${Math.round(110+(185-110)*f)},${Math.round(110+(80-110)*f)})`;
+    }
+  }
+
+  // Render tabla
+  let html = '<div class="heatmap-wrap"><table class="heatmap-table"><thead><tr><th></th>';
+  validTickers.forEach(t => { html += `<th title="${t}">${t.length>6?t.slice(0,5)+'…':t}</th>`; });
+  html += '</tr></thead><tbody>';
+  validTickers.forEach(row => {
+    html += `<tr><th>${row.length>6?row.slice(0,5)+'…':row}</th>`;
+    validTickers.forEach(col => {
+      if (row === col) { html += `<td class="hm-diag">1.00</td>`; return; }
+      const r = pearson(returns[row], returns[col]);
+      const bg = corrColor(r);
+      const val = r !== null ? fmt(r, 2) : '—';
+      const textColor = r !== null && Math.abs(r) > 0.3 ? '#fff' : 'var(--text)';
+      html += `<td style="background:${bg};color:${textColor}">${val}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  el.innerHTML = html;
+  heatmapBuilt = true;
+}
 
 // ── INIT ──────────────────────────────────────────────────────
 navigate('home');
