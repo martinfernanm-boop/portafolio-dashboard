@@ -207,6 +207,17 @@ a{color:inherit;text-decoration:none}
 .qchip{background:var(--surface2);border:1px solid var(--border);border-radius:16px;padding:5px 12px;font-size:.72rem;color:var(--muted);cursor:pointer;transition:border-color .15s}
 .qchip:hover{border-color:var(--blue);color:var(--text)}
 
+/* ── IDEAS ── */
+.idea-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:background .15s;display:flex;align-items:center;gap:10px}
+.idea-card:hover,.idea-card:active{background:var(--surface2)}
+#ideas-sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:265}
+#ideas-sheet{position:fixed;bottom:64px;left:0;right:0;height:84vh;background:var(--bg);border-top:2px solid var(--border);border-radius:20px 20px 0 0;z-index:270;transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
+#ideas-sheet.open{transform:translateY(0)}
+.ideas-handle-area{padding:10px 0 4px;text-align:center;flex-shrink:0}
+.ideas-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto}
+.ideas-sheet-hdr{padding:0 16px 12px;flex-shrink:0;border-bottom:1px solid var(--border)}
+.ideas-sheet-body{flex:1;overflow-y:auto;padding:14px 16px 20px}
+
 @media(min-width:640px) and (max-width:899px){body{max-width:500px;margin:0 auto}
   #chat-panel{left:50%;transform:translateX(-50%) translateY(100%);width:500px;right:auto}
   #chat-panel.open{transform:translateX(-50%) translateY(0)}
@@ -257,7 +268,8 @@ a{color:inherit;text-decoration:none}
   #sec-heatmap-pf{padding-top:32px}
 
   /* páginas con contenido simple: max-width centrado */
-  #page-noticias,#page-indices,#page-stock{max-width:900px;margin:0 auto}
+  #page-noticias,#page-indices,#page-stock,#page-ideas{max-width:900px;margin:0 auto}
+  #ideas-sheet{left:220px;width:calc(100vw - 220px);right:0;bottom:0}
 }
 </style>
 </head>
@@ -459,6 +471,31 @@ a{color:inherit;text-decoration:none}
   </div>
 </div>
 
+<!-- ====== IDEAS ====== -->
+<div id="page-ideas" class="page">
+  <div class="hero" style="padding-top:20px">
+    <div class="hero-label">💡 Ideas de inversión</div>
+    <div style="font-size:.82rem;color:var(--muted);margin-top:4px">Basado en correlación con tu portafolio · datos al cargar</div>
+  </div>
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">🔵 Diversifica tu portafolio</span>
+    </div>
+    <div id="ideas-diversify"><div class="loading"><div class="spinner"></div>Calculando correlaciones…</div></div>
+  </div>
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">🟡 En el radar</span>
+    </div>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Rating Buy/Strong Buy de analistas + caída reciente significativa</div>
+    <div id="ideas-radar"><div class="loading"><div class="spinner"></div>Buscando oportunidades…</div></div>
+  </div>
+</div>
+
+<!-- ====== IDEAS DETAIL SHEET ====== -->
+<div id="ideas-sheet-overlay" onclick="closeIdeasSheet()"></div>
+<div id="ideas-sheet"></div>
+
 <!-- ====== INDEX NEWS SHEET ====== -->
 <div id="idx-sheet-overlay" onclick="closeIdxSheet()"></div>
 <div id="idx-news-sheet">
@@ -494,6 +531,9 @@ a{color:inherit;text-decoration:none}
   </button>
   <button class="nav-item" id="nav-indices" onclick="navigate('indices')">
     <span class="nav-icon">🌐</span><span>Índices</span>
+  </button>
+  <button class="nav-item" id="nav-ideas" onclick="navigate('ideas')">
+    <span class="nav-icon">💡</span><span>Ideas</span>
   </button>
 </nav>
 
@@ -642,6 +682,7 @@ function navigate(page, extra) {
   if(page==='indices')   renderIndices();
   if(page==='stock')     renderStock(extra);
   if(page==='noticias')  renderNoticias();
+  if(page==='ideas')     buildIdeas();
 }
 function goBack(){ navigate(prevPage||'portfolio'); }
 function openStock(ticker){
@@ -1554,6 +1595,279 @@ async function buildHeatmap(containerId) {
 
 async function renderAnalisis() {
   buildHeatmap('heatmap-container');
+}
+
+// ── IDEAS ─────────────────────────────────────────────────────
+const FMP_KEY = 'sNjmxMAcKkDxaIp2f1CFN1AqcqNGZjNT';
+
+const IDEAS_UNIVERSE = [
+  // ── US Stocks (eToro) ──
+  {sym:'AAPL',  name:'Apple',              type:'stock', platforms:['etoro'], tvSym:'NASDAQ:AAPL',  yfSym:'AAPL',
+   desc:'Diseña iPhone, Mac, iPad y servicios como App Store y Apple TV+. La empresa más valiosa del mundo, conocida por su ecosistema cerrado y fidelización de usuarios.'},
+  {sym:'AMZN',  name:'Amazon',             type:'stock', platforms:['etoro'], tvSym:'NASDAQ:AMZN',  yfSym:'AMZN',
+   desc:'Líder global en e-commerce y cloud computing (AWS). También opera en publicidad digital y streaming con Prime Video.'},
+  {sym:'GOOGL', name:'Alphabet',           type:'stock', platforms:['etoro'], tvSym:'NASDAQ:GOOGL', yfSym:'GOOGL',
+   desc:'Matriz de Google: buscador web, YouTube, Google Cloud y Android. Fuerte posición en inteligencia artificial con Gemini.'},
+  {sym:'META',  name:'Meta Platforms',     type:'stock', platforms:['etoro'], tvSym:'NASDAQ:META',  yfSym:'META',
+   desc:'Dueña de Facebook, Instagram y WhatsApp. Invierte fuertemente en realidad virtual y metaverso (Quest).'},
+  {sym:'AMD',   name:'AMD',                type:'stock', platforms:['etoro'], tvSym:'NASDAQ:AMD',   yfSym:'AMD',
+   desc:'Fabrica CPUs y GPUs para PCs, servidores y centros de datos. Competidor directo de Intel y NVIDIA en el mercado de IA.'},
+  {sym:'JPM',   name:'JPMorgan Chase',     type:'stock', platforms:['etoro'], tvSym:'NYSE:JPM',     yfSym:'JPM',
+   desc:'El banco más grande de EE.UU. por activos. Opera en banca de inversión, retail y gestión de activos. Dividendo sólido.'},
+  {sym:'V',     name:'Visa',               type:'stock', platforms:['etoro'], tvSym:'NYSE:V',       yfSym:'V',
+   desc:'Red global de pagos electrónicos. No presta dinero: cobra comisiones por transacciones. Márgenes superiores al 50%.'},
+  {sym:'JNJ',   name:'Johnson & Johnson',  type:'stock', platforms:['etoro'], tvSym:'NYSE:JNJ',     yfSym:'JNJ',
+   desc:'Gigante farmacéutico y de dispositivos médicos. Dividendos crecientes por más de 60 años consecutivos (Dividend King).'},
+  {sym:'XOM',   name:'ExxonMobil',         type:'stock', platforms:['etoro'], tvSym:'NYSE:XOM',     yfSym:'XOM',
+   desc:'Una de las mayores petroleras del mundo. Muy correlacionada con el precio del crudo. Dividendos altos y sostenidos.'},
+  {sym:'WMT',   name:'Walmart',            type:'stock', platforms:['etoro'], tvSym:'NYSE:WMT',     yfSym:'WMT',
+   desc:'Mayor retailer del mundo por ventas. Acción defensiva y estable; avanza en e-commerce para competir con Amazon.'},
+  {sym:'DIS',   name:'Walt Disney',        type:'stock', platforms:['etoro'], tvSym:'NYSE:DIS',     yfSym:'DIS',
+   desc:'Entretenimiento, parques temáticos y streaming (Disney+, Hulu). Fuerte en IP con Marvel, Star Wars y Pixar.'},
+  {sym:'KO',    name:'Coca-Cola',          type:'stock', platforms:['etoro'], tvSym:'NYSE:KO',      yfSym:'KO',
+   desc:'Clásico de Buffett: baja volatilidad, marca global y +60 años de dividendos crecientes. Activo muy defensivo.'},
+  // ── ETFs (eToro) ──
+  {sym:'QQQ',   name:'Invesco Nasdaq 100', type:'etf',   platforms:['etoro'], tvSym:'NASDAQ:QQQ',   yfSym:'QQQ',
+   desc:'ETF que replica las 100 mayores empresas del Nasdaq. Alta concentración en tecnología: Apple, Microsoft, NVIDIA, etc.'},
+  {sym:'GLD',   name:'SPDR Gold ETF',      type:'etf',   platforms:['etoro'], tvSym:'AMEX:GLD',     yfSym:'GLD',
+   desc:'Replica el precio del oro físico. Cobertura ante inflación y caídas de bolsa. Históricamente baja correlación con acciones.'},
+  {sym:'TLT',   name:'iShares 20Y+ Treasury', type:'etf', platforms:['etoro'], tvSym:'NASDAQ:TLT', yfSym:'TLT',
+   desc:'Bonos del Tesoro de EE.UU. a largo plazo. Sube cuando bajan las tasas de interés. Activo refugio en crisis.'},
+  {sym:'VNQ',   name:'Vanguard Real Estate', type:'etf', platforms:['etoro'], tvSym:'AMEX:VNQ',    yfSym:'VNQ',
+   desc:'ETF de REITs (bienes raíces). Ingresos por arriendo diversificados, buenos dividendos y exposición al sector inmobiliario.'},
+  {sym:'XLE',   name:'Energy Select SPDR', type:'etf',   platforms:['etoro'], tvSym:'AMEX:XLE',     yfSym:'XLE',
+   desc:'ETF del sector energético del S&P 500: ExxonMobil, Chevron, ConocoPhillips y más. Sube con el precio del petróleo.'},
+  // ── Crypto (Binance + eToro) ──
+  {sym:'BTC-USD', name:'Bitcoin',          type:'crypto', platforms:['binance','etoro'], tvSym:'BINANCE:BTCUSDT', yfSym:'BTC-USD',
+   desc:'Primera criptomoneda y reserva de valor digital. Oferta limitada a 21 millones. Ciclos de 4 años ligados al halving. El más líquido y adoptado.'},
+  {sym:'ETH-USD', name:'Ethereum',         type:'crypto', platforms:['binance','etoro'], tvSym:'BINANCE:ETHUSDT', yfSym:'ETH-USD',
+   desc:'Plataforma de contratos inteligentes. Base del ecosistema DeFi y NFTs. Transición a Proof of Stake completada en 2022.'},
+  {sym:'SOL-USD', name:'Solana',           type:'crypto', platforms:['binance'],         tvSym:'BINANCE:SOLUSDT', yfSym:'SOL-USD',
+   desc:'Blockchain de alta velocidad y bajas comisiones. Fuerte ecosistema DeFi y memecoins. Principal competidor de Ethereum.'},
+  {sym:'BNB-USD', name:'BNB',              type:'crypto', platforms:['binance'],         tvSym:'BINANCE:BNBUSDT', yfSym:'BNB-USD',
+   desc:'Token nativo de Binance. Se usa para pagar comisiones con descuento en el mayor exchange de cripto del mundo.'},
+  {sym:'XRP-USD', name:'XRP',              type:'crypto', platforms:['binance','etoro'], tvSym:'BINANCE:XRPUSDT', yfSym:'XRP-USD',
+   desc:'Criptomoneda de Ripple para transferencias internacionales bancarias. Alta liquidez, bajas comisiones y victoria legal en EE.UU.'},
+  // ── Chile (Racional) ──
+  {sym:'CMPC.SN',      name:'CMPC',        type:'stock', platforms:['racional'], tvSym:'BOLSA:CMPC',      yfSym:'CMPC.SN',
+   desc:'Empresa forestal y de papel chilena. Opera en celulosa, papel tisú y envases. Presencia en Latinoamérica, Europa y Norteamérica.'},
+  {sym:'FALABELLA.SN', name:'Falabella',   type:'stock', platforms:['racional'], tvSym:'BOLSA:FALABELLA', yfSym:'FALABELLA.SN',
+   desc:'Mayor retailer de Latinoamérica. Tiendas por departamento, ferreterías Sodimac y Banco Falabella en Chile, Perú y Colombia.'},
+];
+
+const IDEAS_PLAT_COLORS = {etoro:'#00C176', binance:'#F0B90B', racional:'#6366f1'};
+const IDEAS_PORT_TICKERS = ['TSLA','NVDA','ASML','PLTR','VOO','TTWO','BLK','UNH','MSFT','INTU','CRWV','SCHD','VPU','QUINENCO'];
+
+let _ideasData = null;
+
+async function buildIdeas() {
+  // Si ya cargamos, solo re-renderizar
+  if (_ideasData) { _renderIdeas(); return; }
+
+  // ── 1. Retornos diarios del portafolio (desde historial) ──────
+  let portReturns = [];
+  try {
+    const {historial} = await get('historial');
+    const slice = (historial||[]).slice(-65);
+    portReturns = slice.slice(1).map((h,i) => (h.valor - slice[i].valor) / slice[i].valor);
+  } catch(e) { console.warn('Ideas historial:', e); }
+
+  // ── 2. Precio histórico de todos los candidatos (YF, paralelo) ─
+  const priceMap = {};
+  await Promise.all(IDEAS_UNIVERSE.map(async a => {
+    try {
+      const j = await fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(a.yfSym)}?interval=1d&range=3mo`);
+      const closes = j?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
+      const valid = closes.filter(v => v != null);
+      if (valid.length >= 10) priceMap[a.sym] = valid;
+    } catch {}
+  }));
+
+  // ── 3. Calcular correlación + variación de precio ─────────────
+  const candidates = IDEAS_UNIVERSE.map(a => {
+    const prices = priceMap[a.sym];
+    if (!prices) return null;
+    const rets = prices.slice(1).map((v,i) => (v - prices[i]) / prices[i]);
+    const corr = portReturns.length >= 5 ? pearson(portReturns, rets) : null;
+    const last = prices[prices.length - 1];
+    const p30 = prices.length > 30 ? prices[prices.length - 31] : prices[0];
+    const p7  = prices.length > 7  ? prices[prices.length - 8]  : prices[0];
+    return {...a, corr, change30d: (last-p30)/p30*100, change7d: (last-p7)/p7*100, currentPrice: last};
+  }).filter(Boolean);
+
+  // ── 4. Ratings FMP para stocks/ETFs (con caché sessionStorage) ─
+  const FMP_CACHE_KEY = 'fmp_ratings_v2';
+  let fmpRatings = {};
+  try {
+    const cached = sessionStorage.getItem(FMP_CACHE_KEY);
+    if (cached) {
+      const {data, ts} = JSON.parse(cached);
+      if (Date.now() - ts < 6*3600*1000) fmpRatings = data;
+    }
+  } catch {}
+
+  if (!Object.keys(fmpRatings).length) {
+    const toRate = candidates.filter(a => a.type !== 'crypto' && !a.yfSym.includes('.SN'));
+    await Promise.all(toRate.map(async a => {
+      try {
+        const r = await fetch(
+          `https://financialmodelingprep.com/api/v3/rating/${a.sym}?apikey=${FMP_KEY}`,
+          {signal: AbortSignal.timeout(9000)}
+        );
+        const d = await r.json();
+        if (d?.[0]?.ratingRecommendation) {
+          fmpRatings[a.sym] = {rating: d[0].ratingRecommendation, score: d[0].ratingScore};
+        }
+      } catch {}
+    }));
+    try { sessionStorage.setItem(FMP_CACHE_KEY, JSON.stringify({data: fmpRatings, ts: Date.now()})); } catch {}
+  }
+
+  const withRatings = candidates.map(a => ({...a, fmpRating: fmpRatings[a.sym] || null}));
+
+  // ── 5. Sección diversificación: baja correlación (excluir portafolio) ─
+  const diversify = withRatings
+    .filter(a => !IDEAS_PORT_TICKERS.includes(a.sym) && a.corr !== null)
+    .sort((a,b) => Math.abs(a.corr) - Math.abs(b.corr))
+    .slice(0, 6);
+
+  // ── 6. Sección radar: buy/strong-buy + caída significativa ────
+  const radar = withRatings.filter(a => {
+    if (IDEAS_PORT_TICKERS.includes(a.sym)) return false;
+    if (a.type === 'crypto') return a.change30d < -20;
+    const goodRating = a.fmpRating && ['Strong Buy','Buy'].includes(a.fmpRating.rating);
+    return goodRating && a.change30d < -8;
+  }).sort((a,b) => a.change30d - b.change30d).slice(0, 8);
+
+  _ideasData = {diversify, radar};
+  _renderIdeas();
+}
+
+function _renderIdeas() {
+  const {diversify, radar} = _ideasData;
+  const divEl   = document.getElementById('ideas-diversify');
+  const radarEl = document.getElementById('ideas-radar');
+  if (!divEl || !radarEl) return;
+
+  divEl.innerHTML = diversify.length
+    ? diversify.map(a => _ideaCard(a,'diversify')).join('')
+    : '<div class="loading">Sin datos suficientes para calcular correlaciones.</div>';
+
+  radarEl.innerHTML = radar.length
+    ? radar.map(a => _ideaCard(a,'radar')).join('')
+    : '<div class="loading" style="flex-direction:column;gap:4px;text-align:center"><span>Sin oportunidades en este momento</span><span style="font-size:.72rem;color:var(--muted)">No hay activos con caída ≥8% y rating Buy.</span></div>';
+}
+
+function _ideaCard(a, section) {
+  const corrStr = a.corr !== null ? (a.corr>=0?'+':'')+fmt(a.corr,2) : '—';
+  const corrAbs = Math.abs(a.corr||0);
+  const corrLabel = corrAbs<0.2?'Muy baja':corrAbs<0.4?'Baja':corrAbs<0.6?'Moderada':'Alta';
+  const chgStr   = a.change30d!=null ? (a.change30d>=0?'+':'')+fmt(a.change30d,1)+'%' : '—';
+  const chgCls   = a.change30d!=null ? (a.change30d>=0?'positive':'negative') : '';
+  const typeIcon = a.type==='crypto'?'₿':a.type==='etf'?'📦':'📊';
+  const dispSym  = a.sym.replace('-USD','').replace('.SN','');
+
+  let reason = section==='diversify'
+    ? `Correlación con tu portafolio: <b>${corrStr}</b> — ${corrLabel}`
+    : a.type==='crypto'
+      ? `Caída de <b>${chgStr}</b> en 30 días — potencial rebote`
+      : `<b>${a.fmpRating?.rating||'Buy'}</b> según analistas · Caída ${chgStr} en 30d`;
+
+  const badges = a.platforms.map(p => {
+    const c = IDEAS_PLAT_COLORS[p]||'#7d8590';
+    return `<span style="padding:2px 7px;border-radius:10px;border:1px solid ${c}44;background:${c}18;color:${c};font-size:.63rem;font-weight:600">${p.charAt(0).toUpperCase()+p.slice(1)}</span>`;
+  }).join('');
+
+  return `<div class="idea-card" onclick="openIdea('${a.sym}')">
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px">
+        <span style="font-weight:700;font-size:.95rem">${dispSym}</span>
+        <span style="font-size:.72rem;color:var(--muted)">${a.name}</span>
+        <span style="font-size:.68rem">${typeIcon}</span>
+      </div>
+      <div style="font-size:.72rem;color:var(--muted);line-height:1.4;margin-bottom:5px">${reason}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">${badges}</div>
+    </div>
+    <div style="text-align:right;flex-shrink:0;margin-left:8px">
+      <div class="${chgCls}" style="font-size:.88rem;font-weight:700">${chgStr}</div>
+      <div style="font-size:.62rem;color:var(--muted);margin-top:2px">30 días</div>
+    </div>
+  </div>`;
+}
+
+function openIdea(sym) {
+  const all = [...(_ideasData?.diversify||[]), ...(_ideasData?.radar||[])];
+  const a = all.find(x => x.sym === sym);
+  if (!a) return;
+
+  const sheet   = document.getElementById('ideas-sheet');
+  const overlay = document.getElementById('ideas-sheet-overlay');
+  const dispSym = a.sym.replace('-USD','').replace('.SN','');
+  const corrStr = a.corr !== null ? (a.corr>=0?'+':'')+fmt(a.corr,2) : '—';
+  const chg30   = a.change30d!=null ? (a.change30d>=0?'+':'')+fmt(a.change30d,1)+'%' : '—';
+  const chg7    = a.change7d!=null  ? (a.change7d>=0?'+':'')+fmt(a.change7d,1)+'%'   : '—';
+  const chg30Cls = a.change30d!=null ? (a.change30d>=0?'positive':'negative') : '';
+  const chg7Cls  = a.change7d!=null  ? (a.change7d>=0?'positive':'negative')  : '';
+
+  const badges = a.platforms.map(p => {
+    const c = IDEAS_PLAT_COLORS[p]||'#7d8590';
+    return `<span style="padding:3px 10px;border-radius:12px;border:1px solid ${c}55;background:${c}22;color:${c};font-size:.72rem;font-weight:600">${p.charAt(0).toUpperCase()+p.slice(1)}</span>`;
+  }).join('');
+
+  const ratingBadge = a.fmpRating
+    ? `<span style="padding:2px 8px;border-radius:8px;font-size:.72rem;font-weight:600;border:1px solid ${a.fmpRating.rating.includes('Buy')?'#3fb95044':'#30363d'};background:${a.fmpRating.rating.includes('Buy')?'#3fb95022':'#21262d'};color:${a.fmpRating.rating.includes('Buy')?'var(--green)':'var(--muted)'}">${a.fmpRating.rating}</span>`
+    : '';
+
+  const chartWrapperId = 'tv_idea_wrap_' + Date.now();
+
+  sheet.innerHTML = `
+    <div class="ideas-handle-area"><div class="ideas-handle"></div></div>
+    <div class="ideas-sheet-hdr">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <span style="font-weight:700;font-size:1.1rem">${dispSym}</span>
+            <span style="font-size:.82rem;color:var(--muted)">${a.name}</span>
+            ${ratingBadge}
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">${badges}</div>
+        </div>
+        <button onclick="closeIdeasSheet()" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:0 0 0 14px;flex-shrink:0">✕</button>
+      </div>
+    </div>
+    <div class="ideas-sheet-body">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+        <div class="fund-card"><div class="fund-label">30 días</div><div class="fund-val ${chg30Cls}">${chg30}</div></div>
+        <div class="fund-card"><div class="fund-label">7 días</div><div class="fund-val ${chg7Cls}">${chg7}</div></div>
+        <div class="fund-card"><div class="fund-label">Correlación</div><div class="fund-val">${corrStr}</div></div>
+      </div>
+      <div style="font-size:.8rem;color:var(--muted);line-height:1.65;margin-bottom:14px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px">${a.desc}</div>
+      <div style="font-size:.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Gráfico</div>
+      <div id="${chartWrapperId}" style="height:300px;border-radius:10px;overflow:hidden"></div>
+    </div>`;
+
+  sheet.classList.add('open');
+  overlay.style.display = 'block';
+
+  // Render TradingView chart con pequeño delay para que el DOM esté listo
+  setTimeout(() => {
+    const wrap = document.getElementById(chartWrapperId);
+    if (!wrap) return;
+    if (window.TradingView && TradingView.widget) {
+      const cid = 'tvi_' + Date.now();
+      const d = document.createElement('div');
+      d.id = cid; d.style.height = '300px';
+      wrap.appendChild(d);
+      new TradingView.widget({autosize:true,symbol:a.tvSym,interval:'D',timezone:'America/New_York',theme:'dark',style:'1',locale:'es',toolbar_bg:'#161b22',enable_publishing:false,hide_top_toolbar:false,save_image:false,container_id:cid});
+    } else {
+      wrap.innerHTML = `<div class="tradingview-widget-container" style="height:300px;width:100%"><div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>{"autosize":true,"symbol":"${a.tvSym}","interval":"D","timezone":"America/New_York","theme":"dark","style":"1","locale":"es","allow_symbol_change":false,"calendar":false}<\/script></div>`;
+    }
+  }, 120);
+}
+
+function closeIdeasSheet() {
+  document.getElementById('ideas-sheet').classList.remove('open');
+  document.getElementById('ideas-sheet-overlay').style.display = 'none';
 }
 
 // ── BALANCE TOGGLE ─────────────────────────────────────────────
