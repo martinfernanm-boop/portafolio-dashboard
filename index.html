@@ -144,6 +144,35 @@ a{color:inherit;text-decoration:none}
 .platform-icon img{width:22px;height:22px;object-fit:contain}
 .platform-name{font-weight:600;font-size:.82rem}
 
+/* BINANCE SECTION */
+.bnc-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.bnc-total{font-size:1.1rem;font-weight:700}
+.bnc-sub{font-size:.75rem;color:var(--muted);margin-top:1px}
+.bnc-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)}
+.bnc-row:last-child{border-bottom:none}
+.bnc-asset{font-weight:600;font-size:.88rem}
+.bnc-qty{font-size:.75rem;color:var(--muted);margin-top:1px}
+.bnc-val{font-size:.88rem;font-weight:600;text-align:right}
+.bnc-price{font-size:.72rem;color:var(--muted);margin-top:1px;text-align:right}
+.bnc-setup{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 0;color:var(--muted);font-size:.84rem;text-align:center}
+.bnc-connect-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:7px 16px;font-size:.82rem;font-weight:600;cursor:pointer}
+.bnc-connect-btn:hover{background:var(--surface)}
+.bnc-cfg-btn{background:none;border:none;color:var(--muted);cursor:pointer;padding:2px 4px;font-size:.82rem;display:flex;align-items:center;gap:3px}
+.bnc-cfg-btn:hover{color:var(--text)}
+/* Modal config Binance */
+.bnc-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px}
+.bnc-modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:360px}
+.bnc-modal h3{margin:0 0 4px;font-size:1rem}
+.bnc-modal p{font-size:.78rem;color:var(--muted);margin:0 0 14px}
+.bnc-modal label{font-size:.78rem;color:var(--muted);display:block;margin-bottom:3px}
+.bnc-modal input{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:.82rem;margin-bottom:10px}
+.bnc-modal-btns{display:flex;gap:8px;margin-top:4px}
+.bnc-modal-btns button{flex:1;padding:9px;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;border:none}
+.bnc-save-btn{background:#F0B90B;color:#000}
+.bnc-cancel-btn{background:var(--surface2);color:var(--text);border:1px solid var(--border)!important}
+.bnc-clear-btn{background:none;border:none;color:var(--muted);font-size:.72rem;cursor:pointer;text-align:center;width:100%;margin-top:6px}
+.bnc-clear-btn:hover{color:var(--red)}
+
 /* UTILS */
 .positive{color:var(--green)}
 .negative{color:var(--red)}
@@ -338,12 +367,15 @@ a{color:inherit;text-decoration:none}
         </div>
         <span class="platform-name">Racional</span>
       </a>
-      <a href="https://www.binance.com" target="_blank" rel="noopener" class="platform-btn">
-        <div class="platform-icon" style="background:#181A20">
-          <img src="https://www.google.com/s2/favicons?domain=binance.com&sz=64" alt="Binance">
-        </div>
-        <span class="platform-name">Binance</span>
-      </a>
+      <div style="display:flex;align-items:center;gap:6px">
+        <a href="https://www.binance.com" target="_blank" rel="noopener" class="platform-btn" style="flex:1">
+          <div class="platform-icon" style="background:#181A20">
+            <img src="https://www.google.com/s2/favicons?domain=binance.com&sz=64" alt="Binance">
+          </div>
+          <span class="platform-name">Binance</span>
+        </a>
+        <button class="bnc-cfg-btn" onclick="openBncModal()" title="Configurar keys Binance">⚙️</button>
+      </div>
       <a href="https://www.tradingview.com" target="_blank" rel="noopener" class="platform-btn">
         <div class="platform-icon" style="background:#131722">
           <img src="https://www.google.com/s2/favicons?domain=tradingview.com&sz=64" alt="TradingView">
@@ -352,7 +384,36 @@ a{color:inherit;text-decoration:none}
       </a>
     </div>
   </div>
+  <div class="section" id="sec-binance">
+    <div class="bnc-header">
+      <span class="section-title">Binance</span>
+      <button class="bnc-cfg-btn" onclick="openBncModal()">⚙️ Config</button>
+    </div>
+    <div id="bnc-content">
+      <div class="bnc-setup">
+        <span>Conecta tu cuenta para ver tu balance crypto</span>
+        <button class="bnc-connect-btn" onclick="openBncModal()">🔑 Conectar Binance</button>
+      </div>
+    </div>
+  </div>
   <div class="status-bar"><span class="live-dot"></span><span id="h-fecha">—</span></div>
+</div>
+
+<!-- Modal config Binance -->
+<div id="bnc-modal-overlay" class="bnc-modal-overlay" style="display:none" onclick="if(event.target===this)closeBncModal()">
+  <div class="bnc-modal">
+    <h3>🔑 Configurar Binance</h3>
+    <p>Las keys se guardan solo en tu navegador (localStorage). Nunca se envían a ningún servidor.</p>
+    <label>API Key</label>
+    <input id="bnc-key-input" type="text" placeholder="Tu API Key de Binance">
+    <label>Secret Key</label>
+    <input id="bnc-secret-input" type="password" placeholder="Tu Secret Key de Binance">
+    <div class="bnc-modal-btns">
+      <button class="bnc-cancel-btn" onclick="closeBncModal()">Cancelar</button>
+      <button class="bnc-save-btn" onclick="saveBncKeys()">Guardar</button>
+    </div>
+    <button class="bnc-clear-btn" onclick="clearBncKeys()">Borrar keys guardadas</button>
+  </div>
 </div>
 
 <!-- ====== PORTFOLIO ====== -->
@@ -759,6 +820,106 @@ function updateMarketBanner() {
   }
 }
 
+// ── BINANCE ───────────────────────────────────────────────────
+async function hmacSha256(secret, message) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), {name:'HMAC',hash:'SHA-256'}, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message));
+  return Array.from(new Uint8Array(sig)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function fetchBinanceAccount() {
+  const apiKey = localStorage.getItem('bnc_key');
+  const secret = localStorage.getItem('bnc_secret');
+  if (!apiKey || !secret) return null;
+  const ts = Date.now();
+  const qs = 'timestamp=' + ts;
+  const sig = await hmacSha256(secret, qs);
+  const url = 'https://api.binance.com/api/v3/account?' + qs + '&signature=' + sig;
+  const resp = await fetch(url, { headers: { 'X-MBX-APIKEY': apiKey } });
+  const data = await resp.json();
+  if (data.code) throw new Error('Binance ' + data.code + ': ' + data.msg);
+  return data;
+}
+
+async function fetchBinancePrices(assets) {
+  if (!assets.length) return {};
+  const resp = await fetch('https://api.binance.com/api/v3/ticker/price');
+  const all = await resp.json();
+  const map = { USDT: 1 };
+  assets.forEach(a => {
+    const t = all.find(x => x.symbol === a + 'USDT');
+    if (t) map[a] = parseFloat(t.price);
+  });
+  return map;
+}
+
+async function renderBinance() {
+  const el = document.getElementById('bnc-content');
+  const hasKeys = localStorage.getItem('bnc_key') && localStorage.getItem('bnc_secret');
+  if (!hasKeys) {
+    el.innerHTML = '<div class="bnc-setup"><span>Conecta tu cuenta para ver tu balance crypto</span><button class="bnc-connect-btn" onclick="openBncModal()">🔑 Conectar Binance</button></div>';
+    return;
+  }
+  el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;padding:10px 0">Cargando...</div>';
+  try {
+    const account = await fetchBinanceAccount();
+    const balances = account.balances
+      .map(b => ({ asset: b.asset, total: parseFloat(b.free) + parseFloat(b.locked), free: parseFloat(b.free) }))
+      .filter(b => b.total > 0);
+    const nonUsdt = balances.filter(b => b.asset !== 'USDT').map(b => b.asset);
+    const prices = await fetchBinancePrices(nonUsdt);
+    const positions = balances
+      .map(b => ({ ...b, price: prices[b.asset] || (b.asset === 'USDT' ? 1 : 0), valueUSD: b.total * (prices[b.asset] || (b.asset === 'USDT' ? 1 : 0)) }))
+      .filter(b => b.valueUSD >= 0.5)
+      .sort((a, b) => b.valueUSD - a.valueUSD);
+    const totalUSD = positions.reduce((s, p) => s + p.valueUSD, 0);
+    const usdt = balances.find(b => b.asset === 'USDT');
+    const disponible = usdt ? usdt.free : 0;
+    let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div><div class="bnc-total">${usd(totalUSD)}</div><div class="bnc-sub">USDT disponible: ${usd(disponible)}</div></div>
+    </div>`;
+    if (positions.length) {
+      html += '<div>';
+      positions.forEach(p => {
+        html += `<div class="bnc-row">
+          <div><div class="bnc-asset">${p.asset}</div><div class="bnc-qty">${fmt(p.total, p.total < 0.01 ? 6 : 4)} ${p.asset}</div></div>
+          <div><div class="bnc-val">${usd(p.valueUSD)}</div>${p.asset !== 'USDT' ? `<div class="bnc-price">@ ${usd(p.price)}</div>` : ''}</div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="bnc-setup" style="color:var(--red)">${e.message}<br><button class="bnc-connect-btn" style="margin-top:6px" onclick="openBncModal()">Revisar keys</button></div>`;
+  }
+}
+
+function openBncModal() {
+  const k = localStorage.getItem('bnc_key') || '';
+  const s = localStorage.getItem('bnc_secret') || '';
+  document.getElementById('bnc-key-input').value = k;
+  document.getElementById('bnc-secret-input').value = s ? '••••••••' : '';
+  document.getElementById('bnc-modal-overlay').style.display = 'flex';
+}
+function closeBncModal() { document.getElementById('bnc-modal-overlay').style.display = 'none'; }
+function saveBncKeys() {
+  const k = document.getElementById('bnc-key-input').value.trim();
+  const s = document.getElementById('bnc-secret-input').value.trim();
+  if (!k) { alert('Ingresa la API Key'); return; }
+  localStorage.setItem('bnc_key', k);
+  if (s && s !== '••••••••') localStorage.setItem('bnc_secret', s);
+  closeBncModal();
+  renderBinance();
+}
+function clearBncKeys() {
+  if (!confirm('¿Borrar las keys de Binance guardadas?')) return;
+  localStorage.removeItem('bnc_key');
+  localStorage.removeItem('bnc_secret');
+  closeBncModal();
+  renderBinance();
+}
+
 // ── HOME ──────────────────────────────────────────────────────
 async function renderHome(){
   // Show loading state immediately so user knows data is being fetched
@@ -779,6 +940,7 @@ async function renderHome(){
     if (fechaEl) fechaEl.textContent='Actualizado: '+resumen.fecha;
     buildDonut(posiciones);
     buildEvo();
+    renderBinance();
   } catch(e){
     console.error('Home:',e);
     document.getElementById('h-total').textContent = '—';
