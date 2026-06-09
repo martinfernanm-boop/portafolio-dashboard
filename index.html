@@ -184,7 +184,7 @@ a{color:inherit;text-decoration:none}
 /* ── CHAT FAB ── */
 #chat-fab{position:fixed;bottom:80px;right:16px;width:48px;height:48px;border-radius:50%;background:var(--blue);border:none;font-size:1.3rem;cursor:pointer;box-shadow:0 4px 16px rgba(88,166,255,.4);z-index:310;transition:transform .15s}
 #chat-fab:hover{transform:scale(1.08)}
-#chat-fab.open{background:var(--surface2)}
+#chat-fab.open{display:none}
 
 /* ── CHAT PANEL ── */
 #chat-panel{
@@ -332,6 +332,17 @@ a{color:inherit;text-decoration:none}
     <div class="card" id="semaforo-content">
       <div class="loading"><div class="spinner"></div>Cargando…</div>
     </div>
+  </div>
+  <div class="section">
+    <div class="section-header">
+      <div style="display:flex;align-items:center;gap:7px">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--purple);flex-shrink:0"></div>
+        <span class="section-title">Resumen semanal · Warren</span>
+      </div>
+      <button onclick="generarResumenIA()" id="btn-resumen-ia" style="background:var(--purple);color:#fff;border:none;border-radius:8px;padding:5px 14px;font-size:.78rem;font-weight:600;cursor:pointer">Generar</button>
+    </div>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Qué funcionó esta semana · qué no · qué hacer</div>
+    <div id="ideas-resumen-ia" class="card" style="display:none"></div>
   </div>
   <div class="section" id="sec-evo">
     <div class="section-header">
@@ -513,19 +524,7 @@ a{color:inherit;text-decoration:none}
 <div id="page-ideas" class="page">
   <div class="hero" style="padding-top:20px">
     <div class="hero-label">Ideas de inversión</div>
-    <div style="font-size:.82rem;color:var(--muted);margin-top:4px">Scoring · oportunidades · correlación · IA</div>
-  </div>
-
-  <!-- Scoring de posiciones -->
-  <div class="section">
-    <div class="section-header">
-      <div style="display:flex;align-items:center;gap:7px">
-        <div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div>
-        <span class="section-title">Scoring de posiciones</span>
-      </div>
-    </div>
-    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Basado en momentum, distancia al objetivo y retorno acumulado</div>
-    <div id="ideas-scoring"><div class="loading"><div class="spinner"></div>Calculando…</div></div>
+    <div style="font-size:.82rem;color:var(--muted);margin-top:4px">Oportunidades de entrada · diversificación</div>
   </div>
 
   <!-- Oportunidades de entrada -->
@@ -536,7 +535,7 @@ a{color:inherit;text-decoration:none}
         <span class="section-title">Oportunidades de entrada</span>
       </div>
     </div>
-    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Rating Buy · upside vs precio objetivo · caída reciente</div>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Acciones y ETFs con rating Buy · upside vs precio objetivo · caída reciente</div>
     <div id="ideas-radar"><div class="loading"><div class="spinner"></div>Buscando oportunidades…</div></div>
   </div>
 
@@ -550,19 +549,6 @@ a{color:inherit;text-decoration:none}
     </div>
     <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Activos con baja correlación a tus posiciones actuales</div>
     <div id="ideas-diversify"><div class="loading"><div class="spinner"></div>Calculando correlaciones…</div></div>
-  </div>
-
-  <!-- Resumen semanal IA -->
-  <div class="section">
-    <div class="section-header">
-      <div style="display:flex;align-items:center;gap:7px">
-        <div style="width:8px;height:8px;border-radius:50%;background:var(--purple);flex-shrink:0"></div>
-        <span class="section-title">Resumen semanal IA</span>
-      </div>
-      <button onclick="generarResumenIA()" id="btn-resumen-ia" style="background:var(--purple);color:#fff;border:none;border-radius:8px;padding:5px 14px;font-size:.78rem;font-weight:600;cursor:pointer">Generar</button>
-    </div>
-    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Análisis completo de la semana · qué funcionó · qué hacer</div>
-    <div id="ideas-resumen-ia" class="card" style="display:none"></div>
   </div>
 </div>
 
@@ -1210,6 +1196,16 @@ async function renderPortfolio(){
   } catch(e){ console.error('Portfolio:',e); el.innerHTML='<div class="loading">Error al cargar posiciones.</div>'; }
 }
 
+function calcScore(p) {
+  let score = 50;
+  if (p.objetivo && p.precioActual) score += Math.min(25, Math.max(-25, (p.objetivo - p.precioActual) / p.precioActual * 100 * 1.2));
+  if (p.retorno != null) score -= Math.min(20, Math.max(-10, p.retorno * 100 * 0.4));
+  if (p.varDia  != null) score += Math.min(10, Math.max(-10, p.varDia  * 100 * 2));
+  if (p.status === 'VENDER' || p.status === 'REDUCIR')   score -= 20;
+  if (p.status === 'COMPRAR' || p.status === 'AUMENTAR') score += 15;
+  return Math.round(Math.min(95, Math.max(5, score)));
+}
+
 function renderPosRows(posiciones){
   const el=document.getElementById('pos-list');
   const sorted=[...posiciones].sort((a,b)=>b.valorUSD-a.valorUSD);
@@ -1219,19 +1215,23 @@ function renderPosRows(posiciones){
     let secondLine,secondCls;
     if(pfMode==='pct'){ secondLine=`${rt>=0?'+':''}${fmt(rt,2)}% total`; secondCls=rt>=0?'positive':'negative'; }
     else { secondLine=`${p.gpUSD>=0?'+':''}${usd(p.gpUSD)}`; secondCls=p.gpUSD>=0?'positive':'negative'; }
-    // QUINENCO: si valorUSD es 0 o inválido, mostrar igual con nota
     const val=p.valorUSD>0 ? usd(p.valorUSD) : '<span style="color:var(--muted);font-size:.72rem">Sin precio USD</span>';
+    const score = calcScore(p);
+    const sc = score>=70?'var(--green)':score>=40?'var(--yellow)':'var(--red)';
+    const accion = score>=70?'Entrada atractiva':score>=55?'Mantener y vigilar':score>=40?'Mantener':'Considerar reducir';
     return `<div class="pos-row" onclick="openStock('${p.ticker}')">
       <div class="pos-ticker" title="${p.ticker}">${p.ticker}</div>
       <div class="pos-info">
         <div class="pos-name">${p.nombre||p.ticker}</div>
         <div class="pos-sub">${p.plataforma||''} · ${fmt(toPct(p.peso),1)}%</div>
+        <div style="font-size:.65rem;color:${sc};margin-top:2px;font-weight:600">${accion}</div>
       </div>
       <div class="pos-right">
         <div class="pos-val">${val}</div>
         <div class="pos-var ${vd>=0?'positive':'negative'}">${vdSign}${fmt(vd,2)}% hoy</div>
         <div class="pos-var ${secondCls}" style="font-size:.7rem">${secondLine}</div>
       </div>
+      <div style="width:30px;height:30px;border-radius:50%;border:2px solid ${sc};display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:800;color:${sc};flex-shrink:0;margin-left:6px">${score}</div>
     </div>`;
   }).join('');
 }
@@ -2158,14 +2158,15 @@ async function buildIdeas() {
     .slice(0, 6)
     .map(a => ({...a, _section:'diversify', _score:_ideaScore(a,'diversify')}));
 
-  // 7. Radar: buy/strong-buy + dip o upside atractivo (incluye acciones y cripto)
+  // 7. Radar: solo acciones y ETFs (no crypto) con criterios de entrada
   const radar = enriched.filter(a => {
     if (IDEAS_PORT_TICKERS.includes(a.sym)) return false;
-    if (a.type === 'crypto') return a.change30d < -15;
+    if (a.type === 'crypto') return false; // crypto excluida de oportunidades de entrada
     const goodRating = a.fmpRating && ['Strong Buy','Buy'].includes(a.fmpRating.rating);
-    const dip        = a.change30d < -5;
-    const goodUpside = a.upside != null && a.upside > 12;
-    return goodRating && (dip || goodUpside);
+    const dip        = a.change30d != null && a.change30d < -5;
+    const goodUpside = a.upside != null && a.upside > 10;
+    // Mostrar si tiene rating bueno, O si tiene upside > 10%, O si cayó > 10% (sin importar rating)
+    return goodRating || goodUpside || (a.change30d != null && a.change30d < -10);
   })
   .sort((a,b) => {
     const sa = (a.upside||0) + Math.max(0, -(a.change30d||0));
@@ -2177,12 +2178,6 @@ async function buildIdeas() {
 
   _ideasData = {diversify, radar, priceMap};
   _renderIdeas();
-
-  // Scoring de posiciones (usa datos ya cargados del portafolio)
-  try {
-    const {posiciones} = await get('portafolio');
-    renderScoring(posiciones);
-  } catch(e) { console.warn('Scoring:', e); }
 }
 
 function _ideaScore(a, section) {
@@ -2569,38 +2564,55 @@ async function generarResumenIA() {
   el.innerHTML = '<div class="loading"><div class="spinner"></div>Consultando IA…</div>';
 
   try {
-    const {resumen, posiciones} = await get('portafolio');
-    const hoy   = new Date().toLocaleDateString('es-CL');
+    const [{resumen, posiciones}, histData] = await Promise.all([
+      get('portafolio'),
+      get('historial').catch(()=>({historial:[]}))
+    ]);
+    const hoy = new Date().toLocaleDateString('es-CL');
+
+    // Variación semanal del portafolio desde historial
+    const hist = (histData.historial||[]).slice(-8);
+    const valorHoy    = resumen.valor;
+    const valorHace7  = hist.length >= 7 ? hist[hist.length-8]?.valor : null;
+    const varSemana   = valorHace7 ? ((valorHoy - valorHace7) / valorHace7 * 100) : null;
+    const varSemStr   = varSemana != null ? `${varSemana>=0?'+':''}${fmt(varSemana,2)}%` : 'sin datos';
+
+    // Top 3 mejor y peor por varDia
+    const sorted = [...posiciones].sort((a,b) => (b.varDia||0) - (a.varDia||0));
+    const mejores = sorted.slice(0,3).map(p=>`${p.ticker} ${p.varDia>=0?'+':''}${(p.varDia*100).toFixed(2)}% hoy`).join(', ');
+    const peores  = sorted.slice(-2).reverse().map(p=>`${p.ticker} ${p.varDia>=0?'+':''}${(p.varDia*100).toFixed(2)}% hoy`).join(', ');
     const detalle = posiciones.map(p =>
-      `${p.ticker}: precio $${fmt(p.precioActual,2)}, variación día ${(p.varDia*100).toFixed(2)}%, retorno total ${(p.retorno*100).toFixed(1)}%, valor $${fmt(p.valorUSD,2)}`
+      `${p.ticker}: precio actual $${fmt(p.precioActual,2)}, variación hoy ${(p.varDia*100).toFixed(2)}%, valor en cartera $${fmt(p.valorUSD,2)}`
     ).join('\n');
 
-    const prompt = `Eres un asesor financiero personal. Hoy es ${hoy}.
+    const prompt = `Eres Warren, asesor financiero personal. Hoy es ${hoy}.
 
-PORTAFOLIO:
-Valor total: $${fmt(resumen.valor,2)}
-Ganancia acumulada: ${resumen.ganancia>=0?'+':''}$${fmt(resumen.ganancia,2)} (${(resumen.retorno*100).toFixed(2)}%)
+PORTAFOLIO HOY:
+Valor total: $${fmt(valorHoy,2)}
+Variación esta semana: ${varSemStr}
+Mejor hoy: ${mejores}
+Peor hoy: ${peores}
 
-POSICIONES:
+POSICIONES ACTUALES:
 ${detalle}
 
-Genera un resumen semanal accionable en español con este formato:
+Genera un resumen semanal accionable en español. Habla de lo que pasó ESTA SEMANA en el mercado y en estas posiciones específicas, no de retornos históricos acumulados. Usa este formato:
 
 RESUMEN SEMANAL — ${hoy}
 
-LO QUE FUNCIONÓ
-[2-3 posiciones con mejor desempeño y por qué]
+LO QUE FUNCIONÓ ESTA SEMANA
+[2-3 posiciones con mejor desempeño esta semana y por qué — menciona eventos o noticias del sector]
 
 LO QUE NO FUNCIONÓ
-[1-2 posiciones con peor desempeño y causa probable]
+[1-2 posiciones débiles esta semana y causa probable del mercado]
 
-CONTEXTO MACRO
-[2 líneas sobre el estado actual del mercado que afecta este portafolio]
+CONTEXTO MACRO DE LA SEMANA
+[2 líneas sobre lo más relevante que ocurrió esta semana en el mercado]
 
-ACCIONES PARA ESTA SEMANA
-[3 acciones concretas y específicas: qué vigilar, qué considerar comprar/vender/mantener]
+ACCIONES PARA LA PRÓXIMA SEMANA
+[3 acciones concretas: qué vigilar, qué considerar mover, qué earnings o eventos vienen]
 
-Máximo 250 palabras. Directo y útil.`;
+Máximo 250 palabras. Directo y específico a estas posiciones.`;
 
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
