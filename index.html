@@ -1453,7 +1453,7 @@ async function fetchNewsFor(query, tag){
 
 async function renderEarnings(){
   const el=document.getElementById('earnings-list');
-  const CACHE_KEY='earnings_yf_v1', CACHE_TTL=6*3600*1000;
+  const CACHE_KEY='earnings_gas_v1', CACHE_TTL=6*3600*1000;
   try {
     const cached=sessionStorage.getItem(CACHE_KEY);
     if(cached){ const {data,ts}=JSON.parse(cached); if(Date.now()-ts<CACHE_TTL){ buildEarningsTable(data,el); return; } }
@@ -1461,29 +1461,14 @@ async function renderEarnings(){
 
   el.innerHTML='<div class="loading"><div class="spinner"></div>Cargando earnings…</div>';
 
-  let tickers=[];
-  try { const {posiciones}=await get('portafolio'); tickers=posiciones.map(p=>p.ticker).filter(t=>t&&t!=='QUINENCO'); } catch {}
-  if(!tickers.length){ el.innerHTML='<div class="loading" style="color:var(--muted)">Sin posiciones cargadas.</div>'; return; }
-
-  const now=Date.now(), in30=now+30*24*3600*1000;
-  const data=[];
-
-  for(const t of tickers){
-    try {
-      const url=`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(t)}?modules=calendarEvents`;
-      const j=await fetchYF(url);
-      const dates=j?.quoteSummary?.result?.[0]?.calendarEvents?.earnings?.earningsDate||[];
-      for(const d of dates){
-        const ts=d.raw*1000;
-        if(ts>=now && ts<=in30) data.push({ticker:t, ts});
-      }
-    } catch {}
-    await sleep(150);
+  try {
+    const {earnings}=await get('earnings', true);
+    const data=earnings||[];
+    try{ sessionStorage.setItem(CACHE_KEY,JSON.stringify({data,ts:Date.now()})); } catch {}
+    buildEarningsTable(data,el);
+  } catch(e) {
+    el.innerHTML=`<div style="color:var(--muted);font-size:.82rem;padding:14px 0;text-align:center">No se pudo cargar earnings.</div>`;
   }
-
-  data.sort((a,b)=>a.ts-b.ts);
-  try{ sessionStorage.setItem(CACHE_KEY,JSON.stringify({data,ts:Date.now()})); } catch {}
-  buildEarningsTable(data,el);
 }
 
 function buildEarningsTable(data,el){
