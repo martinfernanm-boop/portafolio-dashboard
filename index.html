@@ -399,6 +399,12 @@ a{color:inherit;text-decoration:none}
       <div class="loading"><div class="spinner"></div>Cargando…</div>
     </div>
   </div>
+  <div class="section" id="sec-beta-pf">
+    <div class="section-title">Beta del portafolio — 90 días vs SPY</div>
+    <div class="card" id="beta-pf-container">
+      <div class="loading"><div class="spinner"></div>Calculando…</div>
+    </div>
+  </div>
   <div class="section" id="sec-heatmap-pf">
     <div class="section-title">Correlación de activos — 90 días</div>
     <div class="card" id="heatmap-pf-container">
@@ -1159,6 +1165,7 @@ async function renderPortfolio(){
     retEl.textContent=fmtPct(resumen.retorno);
     retEl.className='meta-value '+cls(resumen.retorno);
     renderPosRows(posiciones);
+    calcPortfolioBeta(posiciones);
     buildHeatmap('heatmap-pf-container');
   } catch(e){ console.error('Portfolio:',e); el.innerHTML='<div class="loading">Error al cargar posiciones.</div>'; }
 }
@@ -1819,6 +1826,87 @@ document.querySelector('.chat-header').addEventListener('dblclick',()=>{
 });
 
 // ── ANÁLISIS / HEATMAP ────────────────────────────────────────
+// ── BETA DEL PORTAFOLIO ───────────────────────────────────────
+async function calcPortfolioBeta(posiciones) {
+  const el = document.getElementById('beta-pf-container');
+  if (!el) return;
+
+  const valorTotal = posiciones.reduce((s, p) => s + (p.valorUSD || 0), 0);
+  if (!valorTotal) { el.innerHTML = '<div class="loading" style="color:var(--muted)">Sin datos de valor.</div>'; return; }
+
+  const yfSym = t => t === 'QUINENCO' ? 'QUINENCO.SN' : t;
+  const tickers = posiciones.map(p => p.ticker);
+  const weights = {};
+  posiciones.forEach(p => { weights[p.ticker] = (p.valorUSD || 0) / valorTotal; });
+
+  // Excluir cripto puro (no tienen beta vs SPY significativa) y tickers SN (bolsa chilena)
+  const spTickers = tickers.filter(t => !t.endsWith('.SN') && t !== 'QUINENCO');
+
+  let results, spyResult;
+  try {
+    [results, spyResult] = await Promise.all([
+      Promise.all(spTickers.map(t =>
+        fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yfSym(t))}?interval=1d&range=3mo`).catch(() => null)
+      )),
+      fetchYF('https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&range=3mo').catch(() => null)
+    ]);
+  } catch(e) { el.innerHTML = `<div class="loading" style="color:var(--muted)">Error: ${e.message}</div>`; return; }
+
+  const spyCloses = spyResult?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(v => v != null);
+  if (!spyCloses || spyCloses.length < 10) { el.innerHTML = '<div class="loading" style="color:var(--muted)">Sin datos de SPY.</div>'; return; }
+  const spyReturns = spyCloses.slice(1).map((v, i) => (v - spyCloses[i]) / spyCloses[i]);
+
+  // Retornos diarios de cada ticker
+  const tickerReturns = {};
+  spTickers.forEach((t, i) => {
+    const closes = results[i]?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(v => v != null);
+    if (closes && closes.length > 5)
+      tickerReturns[t] = closes.slice(1).map((v, j) => (v - closes[j]) / closes[j]);
+  });
+
+  // Retornos ponderados del portafolio (solo tickers con datos, renormalizar pesos)
+  const validTickers = spTickers.filter(t => tickerReturns[t]);
+  const validWeightSum = validTickers.reduce((s, t) => s + weights[t], 0);
+  if (!validWeightSum || validTickers.length === 0) { el.innerHTML = '<div class="loading" style="color:var(--muted)">Datos insuficientes.</div>'; return; }
+
+  const n = Math.min(spyReturns.length, ...validTickers.map(t => tickerReturns[t].length));
+  const pfReturns = Array.from({length: n}, (_, d) =>
+    validTickers.reduce((s, t) => s + (weights[t] / validWeightSum) * tickerReturns[t][d], 0)
+  );
+
+  // Beta = Cov(pf, spy) / Var(spy)
+  const spy = spyReturns.slice(-n);
+  const pf  = pfReturns.slice(-n);
+  const meanSpy = spy.reduce((s,v)=>s+v,0)/n;
+  const meanPf  = pf.reduce((s,v)=>s+v,0)/n;
+  let cov = 0, varSpy = 0;
+  for (let i = 0; i < n; i++) {
+    cov    += (pf[i] - meanPf) * (spy[i] - meanSpy);
+    varSpy += (spy[i] - meanSpy) ** 2;
+  }
+  const beta = varSpy ? cov / varSpy : null;
+  if (beta === null) { el.innerHTML = '<div class="loading" style="color:var(--muted)">No se pudo calcular.</div>'; return; }
+
+  let label, color;
+  if (beta < 0.8)       { label = 'Conservador'; color = 'var(--green)'; }
+  else if (beta <= 1.2) { label = 'Normal';       color = 'var(--yellow)'; }
+  else                  { label = 'Agresivo';      color = 'var(--red)'; }
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:20px;padding:4px 0">
+      <div style="font-size:2.2rem;font-weight:700;color:${color};line-height:1">${fmt(beta,2)}</div>
+      <div>
+        <div style="font-size:.82rem;font-weight:600;color:${color}">${label}</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:2px">vs SPY · ${n} días · ${validTickers.length}/${tickers.length} activos</div>
+      </div>
+      <div style="margin-left:auto;font-size:.7rem;color:var(--muted);text-align:right;line-height:1.6">
+        <span style="color:var(--green)">&#60;0.8</span> conservador<br>
+        <span style="color:var(--yellow)">0.8–1.2</span> normal<br>
+        <span style="color:var(--red)">&#62;1.2</span> agresivo
+      </div>
+    </div>`;
+}
+
 // Cache compartido del heatmap para no re-fetchear si ya se cargó
 let _heatmapHTML = null;
 
