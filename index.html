@@ -2433,46 +2433,55 @@ async function renderSemaforo() {
     const vixCloses = vixJ?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(v=>v!=null)||[];
     const vix = vixCloses[vixCloses.length-1];
 
-    // SPY vs MA50 y MA200
+    // SPY datos
     const spyCloses = spyJ?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(v=>v!=null)||[];
     const spyLast   = spyCloses[spyCloses.length-1];
-    const ma50  = spyCloses.length>=50  ? spyCloses.slice(-50).reduce((s,v)=>s+v,0)/50   : null;
-    const ma200 = spyCloses.length>=200 ? spyCloses.slice(-200).reduce((s,v)=>s+v,0)/200 : null;
+    const spy5d     = spyCloses.length>=6  ? spyCloses[spyCloses.length-6]  : null; // hace 5 días
+    const spy20d    = spyCloses.length>=21 ? spyCloses[spyCloses.length-21] : null; // hace 20 días
+    const ma200     = spyCloses.length>=200? spyCloses.slice(-200).reduce((s,v)=>s+v,0)/200 : null;
 
-    // Scoring individual por indicador
     const indicators = [];
 
-    // 1. VIX
+    // 1. VIX — miedo del mercado
     let vixColor, vixLabel, vixScore;
-    if (vix < 15)      { vixColor='var(--green)';  vixLabel='Calma';      vixScore=3; }
-    else if (vix < 20) { vixColor='var(--green)';  vixLabel='Normal';     vixScore=2; }
-    else if (vix < 30) { vixColor='var(--yellow)'; vixLabel='Precaución'; vixScore=1; }
-    else               { vixColor='var(--red)';    vixLabel='Miedo';      vixScore=0; }
+    if (vix < 18)      { vixColor='var(--green)';  vixLabel='Calma';      vixScore=2; }
+    else if (vix < 25) { vixColor='var(--yellow)'; vixLabel='Alerta';     vixScore=1; }
+    else if (vix < 35) { vixColor='var(--red)';    vixLabel='Miedo';      vixScore=0; }
+    else               { vixColor='var(--red)';    vixLabel='Pánico';     vixScore:-1; }
     indicators.push({label:'VIX', value:fmt(vix,1), sub:vixLabel, color:vixColor, score:vixScore});
 
-    // 2. SPY vs MA50
-    if (spyLast && ma50) {
-      const pct50 = (spyLast/ma50-1)*100;
-      const c = pct50>0?'var(--green)':pct50>-3?'var(--yellow)':'var(--red)';
-      const l = pct50>0?'Sobre MA50':'Bajo MA50';
-      indicators.push({label:'SPY / MA50', value:(pct50>=0?'+':'')+fmt(pct50,1)+'%', sub:l, color:c, score:pct50>0?2:pct50>-3?1:0});
+    // 2. SPY semanal — lo que pasó esta semana (lo más relevante)
+    if (spyLast && spy5d) {
+      const pct5 = (spyLast/spy5d-1)*100;
+      const c = pct5>0?'var(--green)':pct5>-2?'var(--yellow)':'var(--red)';
+      const l = pct5>1?'Semana alcista':pct5>-2?'Semana lateral':'Semana bajista';
+      indicators.push({label:'SPY 5d', value:(pct5>=0?'+':'')+fmt(pct5,2)+'%', sub:l, color:c, score:pct5>0?2:pct5>-2?1:0});
     }
 
-    // 3. SPY vs MA200
+    // 3. SPY mensual — momentum de medio plazo
+    if (spyLast && spy20d) {
+      const pct20 = (spyLast/spy20d-1)*100;
+      const c = pct20>0?'var(--green)':pct20>-5?'var(--yellow)':'var(--red)';
+      const l = pct20>0?'Mes positivo':pct20>-5?'Mes lateral':'Mes negativo';
+      indicators.push({label:'SPY 20d', value:(pct20>=0?'+':'')+fmt(pct20,2)+'%', sub:l, color:c, score:pct20>0?2:pct20>-5?1:0});
+    }
+
+    // 4. SPY vs MA200 — tendencia de largo plazo
     if (spyLast && ma200) {
       const pct200 = (spyLast/ma200-1)*100;
-      const c = pct200>0?'var(--green)':pct200>-5?'var(--yellow)':'var(--red)';
-      const l = pct200>0?'Tendencia alcista':'Tendencia bajista';
-      indicators.push({label:'SPY / MA200', value:(pct200>=0?'+':'')+fmt(pct200,1)+'%', sub:l, color:c, score:pct200>0?2:pct200>-5?1:0});
+      const c = pct200>0?'var(--green)':pct200>-8?'var(--yellow)':'var(--red)';
+      const l = pct200>0?'Sobre MA200':'Bajo MA200';
+      indicators.push({label:'MA200', value:(pct200>=0?'+':'')+fmt(pct200,1)+'%', sub:l, color:c, score:pct200>0?2:pct200>-8?1:0});
     }
 
-    // Score global
-    const totalScore = indicators.reduce((s,i)=>s+i.score,0);
-    const maxScore   = indicators.length * (indicators[0]?.score===3?3:2);
-    const ratio      = totalScore / (indicators.length * 2);
+    // Score global — SPY 5d tiene doble peso por ser lo más relevante ahora
+    const scores = indicators.map(i => i.score);
+    const weighted = scores[0]*1 + (scores[1]||0)*2 + (scores[2]||0)*1 + (scores[3]||0)*1; // VIX + 2×5d + 20d + MA200
+    const maxW = 1*2 + 2*2 + 1*2 + 1*2; // 10
+    const ratio = weighted / maxW;
     let globalColor, globalLabel;
-    if (ratio >= 0.75)      { globalColor='var(--green)';  globalLabel='🟢 Favorable'; }
-    else if (ratio >= 0.40) { globalColor='var(--yellow)'; globalLabel='🟡 Precaución'; }
+    if (ratio >= 0.65)      { globalColor='var(--green)';  globalLabel='🟢 Favorable'; }
+    else if (ratio >= 0.35) { globalColor='var(--yellow)'; globalLabel='🟡 Precaución'; }
     else                    { globalColor='var(--red)';    globalLabel='🔴 Adverso'; }
 
     badge.textContent    = globalLabel;
