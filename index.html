@@ -464,6 +464,12 @@ a{color:inherit;text-decoration:none}
     <div style="font-size:1rem;font-weight:600;color:var(--muted)" id="news-date">—</div>
   </div>
   <div class="section">
+    <div class="section-title">📅 Próximos earnings</div>
+    <div class="card" id="earnings-list">
+      <div class="loading"><div class="spinner"></div>Cargando…</div>
+    </div>
+  </div>
+  <div class="section">
     <div class="news-filter" id="news-filter-chips">
       <button class="nf-chip active" onclick="filterNews('all')">Todos</button>
     </div>
@@ -1437,9 +1443,73 @@ async function fetchNewsFor(query, tag){
   } catch { return []; }
 }
 
+async function renderEarnings(){
+  const el=document.getElementById('earnings-list');
+  const CACHE_KEY='earnings_fmp_v1', CACHE_TTL=6*3600*1000;
+  try {
+    const cached=sessionStorage.getItem(CACHE_KEY);
+    if(cached){ const {data,ts}=JSON.parse(cached); if(Date.now()-ts<CACHE_TTL){ buildEarningsTable(data,el); return; } }
+  } catch {}
+
+  el.innerHTML='<div class="loading"><div class="spinner"></div>Cargando earnings…</div>';
+
+  // Obtener tickers del portafolio
+  let tickers=[];
+  try { const {posiciones}=await get('portafolio'); tickers=posiciones.map(p=>p.ticker).filter(t=>t); } catch {}
+  if(!tickers.length){ el.innerHTML='<div class="loading" style="color:var(--muted)">Sin posiciones cargadas.</div>'; return; }
+
+  const now=new Date();
+  const from=now.toISOString().slice(0,10);
+  const to=new Date(now.getTime()+30*24*3600*1000).toISOString().slice(0,10);
+
+  try {
+    const url=`https://financialmodelingprep.com/api/v3/earning_calendar?from=${from}&to=${to}&apikey=${FMP_KEY}`;
+    const res=await fetch(url,{signal:AbortSignal.timeout(10000)});
+    if(!res.ok) throw new Error('FMP '+res.status);
+    const all=await res.json();
+    const tickerSet=new Set(tickers);
+    const data=all.filter(e=>tickerSet.has(e.symbol)).sort((a,b)=>a.date.localeCompare(b.date));
+    try{ sessionStorage.setItem(CACHE_KEY,JSON.stringify({data,ts:Date.now()})); } catch {}
+    buildEarningsTable(data,el);
+  } catch(e) {
+    el.innerHTML=`<div class="loading" style="color:var(--muted)">No se pudo cargar: ${e.message}</div>`;
+  }
+}
+
+function buildEarningsTable(data,el){
+  if(!data.length){
+    el.innerHTML='<div class="loading" style="color:var(--muted);padding:16px">Sin earnings de tu portafolio en los próximos 30 días.</div>';
+    return;
+  }
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:.82rem">
+    <thead><tr style="color:var(--muted);border-bottom:1px solid var(--border)">
+      <th style="text-align:left;padding:8px 6px">Fecha</th>
+      <th style="text-align:left;padding:8px 6px">Ticker</th>
+      <th style="text-align:right;padding:8px 6px">EPS est.</th>
+      <th style="text-align:right;padding:8px 6px">EPS ant.</th>
+      <th style="text-align:right;padding:8px 6px">Rev. est.</th>
+    </tr></thead>
+    <tbody>${data.map(e=>{
+      const epsEst=e.epsEstimated!=null?fmt(e.epsEstimated,2):'—';
+      const epsPrev=e.eps!=null?fmt(e.eps,2):'—';
+      const rev=e.revenueEstimated!=null?'$'+fmt(e.revenueEstimated/1e9,2)+'B':'—';
+      const d=new Date(e.date+'T12:00:00');
+      const fecha=d.toLocaleDateString('es-CL',{day:'numeric',month:'short'});
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:8px 6px;color:var(--muted)">${fecha}</td>
+        <td style="padding:8px 6px;font-weight:600;color:var(--blue)">${e.symbol}</td>
+        <td style="padding:8px 6px;text-align:right">${epsEst}</td>
+        <td style="padding:8px 6px;text-align:right;color:var(--muted)">${epsPrev}</td>
+        <td style="padding:8px 6px;text-align:right;color:var(--muted)">${rev}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
 async function renderNoticias(){
   const el=document.getElementById('news-main-list');
   document.getElementById('news-date').textContent=new Date().toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'});
+  renderEarnings();
   if(allNewsCache.length){ buildNewsChips(); renderNewsList(allNewsCache,activeNewsFilter); return; }
   el.innerHTML='<div class="loading"><div class="spinner"></div>Cargando noticias…</div>';
 
