@@ -1198,11 +1198,24 @@ async function renderPortfolio(){
 
 function calcScore(p) {
   let score = 50;
-  if (p.objetivo && p.precioActual) score += Math.min(25, Math.max(-25, (p.objetivo - p.precioActual) / p.precioActual * 100 * 1.2));
-  if (p.retorno != null) score -= Math.min(20, Math.max(-10, p.retorno * 100 * 0.4));
-  if (p.varDia  != null) score += Math.min(10, Math.max(-10, p.varDia  * 100 * 2));
-  if (p.status === 'VENDER' || p.status === 'REDUCIR')   score -= 20;
-  if (p.status === 'COMPRAR' || p.status === 'AUMENTAR') score += 15;
+
+  // Distancia al precio objetivo: si está por debajo → atractivo, si lo superó → considerar tomar ganancias
+  const precio  = parseFloat(p.precioActual) || 0;
+  const obj     = parseFloat(p.objetivo)     || 0;
+  if (precio > 0 && obj > 0) {
+    const distPct = (obj - precio) / precio * 100; // positivo = hay upside, negativo = ya superó objetivo
+    score += Math.min(30, Math.max(-25, distPct * 0.8));
+  }
+
+  // Momentum del día: señal menor de corto plazo
+  const vd = parseFloat(p.varDia);
+  if (!isNaN(vd)) score += Math.min(8, Math.max(-8, vd * 100 * 1.5));
+
+  // Status explícito del sheet (col T) tiene mayor peso
+  const st = (p.status || '').toUpperCase();
+  if (st === 'VENDER' || st === 'REDUCIR')   score -= 30;
+  if (st === 'COMPRAR' || st === 'AUMENTAR') score += 20;
+
   return Math.round(Math.min(95, Math.max(5, score)));
 }
 
