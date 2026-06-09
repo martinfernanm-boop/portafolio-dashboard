@@ -861,7 +861,13 @@ async function fetchBinanceAccount() {
   const apiKey = localStorage.getItem('bnc_key');
   const secret = localStorage.getItem('bnc_secret');
   if (!apiKey || !secret) return null;
-  const ts = Date.now();
+  // Usar timestamp del servidor de Binance para evitar error -1021
+  let ts = Date.now();
+  try {
+    const srv = await fetch('https://api.binance.com/api/v3/time');
+    const { serverTime } = await srv.json();
+    if (serverTime) ts = serverTime;
+  } catch {};
   const qs = 'timestamp=' + ts;
   const sig = await hmacSha256(secret, qs);
   // Intentar directo, luego con proxy si falla por CORS
