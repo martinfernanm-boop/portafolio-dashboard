@@ -385,6 +385,7 @@ a{color:inherit;text-decoration:none}
     <div class="hero-meta">
       <div class="meta-item"><span class="meta-label">G/P</span><span class="meta-value" id="p-gp">—</span></div>
       <div class="meta-item"><span class="meta-label">Retorno</span><span class="meta-value" id="p-ret">—</span></div>
+      <div class="meta-item"><span class="meta-label">Beta 90d</span><span class="meta-value" id="p-beta">—</span></div>
     </div>
   </div>
   <div class="section" id="sec-posiciones">
@@ -397,12 +398,6 @@ a{color:inherit;text-decoration:none}
     </div>
     <div class="card" id="pos-list">
       <div class="loading"><div class="spinner"></div>Cargando…</div>
-    </div>
-  </div>
-  <div class="section" id="sec-beta-pf">
-    <div class="section-title">Beta del portafolio — 90 días vs SPY</div>
-    <div class="card" id="beta-pf-container">
-      <div class="loading"><div class="spinner"></div>Calculando…</div>
     </div>
   </div>
   <div class="section" id="sec-heatmap-pf">
@@ -876,7 +871,7 @@ async function fetchBinanceAccount() {
     resp = await fetch(endpoint, { headers: { 'X-MBX-APIKEY': apiKey } });
   } catch(e) {
     // CORS fallback
-    const proxy = 'https://corsproxy.io/?' + encodeURIComponent(endpoint);
+    const proxy = 'https://corsproxy.io/?url=' + encodeURIComponent(endpoint);
     resp = await fetch(proxy, { headers: { 'X-MBX-APIKEY': apiKey } });
   }
   const data = await resp.json();
@@ -961,7 +956,7 @@ async function renderAlertas(force=false) {
     const data = await get('alertas', force);
     const alertas = data.alertas || [];
     if (!alertas.length) {
-      el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:16px 0">Sin alertas enviadas aún</div>';
+      el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:20px 0">Sin alertas enviadas aún.<br><span style="font-size:.74rem">Se registran cuando un activo llega a su precio objetivo o mueve ±3% en el día.</span></div>';
       return;
     }
     const rows = alertas.map(a => {
@@ -1474,6 +1469,7 @@ async function renderEarnings(){
     const res=await fetch(url,{signal:AbortSignal.timeout(10000)});
     if(!res.ok) throw new Error('FMP '+res.status);
     const all=await res.json();
+    if(!Array.isArray(all)) throw new Error(all['Error Message']||all.message||'Límite de API alcanzado');
     const tickerSet=new Set(tickers);
     const data=all.filter(e=>tickerSet.has(e.symbol)).sort((a,b)=>a.date.localeCompare(b.date));
     try{ sessionStorage.setItem(CACHE_KEY,JSON.stringify({data,ts:Date.now()})); } catch {}
@@ -1828,11 +1824,11 @@ document.querySelector('.chat-header').addEventListener('dblclick',()=>{
 // ── ANÁLISIS / HEATMAP ────────────────────────────────────────
 // ── BETA DEL PORTAFOLIO ───────────────────────────────────────
 async function calcPortfolioBeta(posiciones) {
-  const el = document.getElementById('beta-pf-container');
+  const el = document.getElementById('p-beta');
   if (!el) return;
 
   const valorTotal = posiciones.reduce((s, p) => s + (p.valorUSD || 0), 0);
-  if (!valorTotal) { el.innerHTML = '<div class="loading" style="color:var(--muted)">Sin datos de valor.</div>'; return; }
+  if (!valorTotal) return;
 
   const yfSym = t => t === 'QUINENCO' ? 'QUINENCO.SN' : t;
   const tickers = posiciones.map(p => p.ticker);
@@ -1850,10 +1846,10 @@ async function calcPortfolioBeta(posiciones) {
       )),
       fetchYF('https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&range=3mo').catch(() => null)
     ]);
-  } catch(e) { el.innerHTML = `<div class="loading" style="color:var(--muted)">Error: ${e.message}</div>`; return; }
+  } catch(e) { return; }
 
   const spyCloses = spyResult?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(v => v != null);
-  if (!spyCloses || spyCloses.length < 10) { el.innerHTML = '<div class="loading" style="color:var(--muted)">Sin datos de SPY.</div>'; return; }
+  if (!spyCloses || spyCloses.length < 10) return;
   const spyReturns = spyCloses.slice(1).map((v, i) => (v - spyCloses[i]) / spyCloses[i]);
 
   // Retornos diarios de cada ticker
@@ -1867,7 +1863,7 @@ async function calcPortfolioBeta(posiciones) {
   // Retornos ponderados del portafolio (solo tickers con datos, renormalizar pesos)
   const validTickers = spTickers.filter(t => tickerReturns[t]);
   const validWeightSum = validTickers.reduce((s, t) => s + weights[t], 0);
-  if (!validWeightSum || validTickers.length === 0) { el.innerHTML = '<div class="loading" style="color:var(--muted)">Datos insuficientes.</div>'; return; }
+  if (!validWeightSum || validTickers.length === 0) return;
 
   const n = Math.min(spyReturns.length, ...validTickers.map(t => tickerReturns[t].length));
   const pfReturns = Array.from({length: n}, (_, d) =>
@@ -1885,26 +1881,15 @@ async function calcPortfolioBeta(posiciones) {
     varSpy += (spy[i] - meanSpy) ** 2;
   }
   const beta = varSpy ? cov / varSpy : null;
-  if (beta === null) { el.innerHTML = '<div class="loading" style="color:var(--muted)">No se pudo calcular.</div>'; return; }
+  if (beta === null) return;
 
-  let label, color;
-  if (beta < 0.8)       { label = 'Conservador'; color = 'var(--green)'; }
-  else if (beta <= 1.2) { label = 'Normal';       color = 'var(--yellow)'; }
-  else                  { label = 'Agresivo';      color = 'var(--red)'; }
+  let color;
+  if (beta < 0.8)       color = 'var(--green)';
+  else if (beta <= 1.2) color = 'var(--yellow)';
+  else                  color = 'var(--red)';
 
-  el.innerHTML = `
-    <div style="display:flex;align-items:center;gap:20px;padding:4px 0">
-      <div style="font-size:2.2rem;font-weight:700;color:${color};line-height:1">${fmt(beta,2)}</div>
-      <div>
-        <div style="font-size:.82rem;font-weight:600;color:${color}">${label}</div>
-        <div style="font-size:.75rem;color:var(--muted);margin-top:2px">vs SPY · ${n} días · ${validTickers.length}/${tickers.length} activos</div>
-      </div>
-      <div style="margin-left:auto;font-size:.7rem;color:var(--muted);text-align:right;line-height:1.6">
-        <span style="color:var(--green)">&#60;0.8</span> conservador<br>
-        <span style="color:var(--yellow)">0.8–1.2</span> normal<br>
-        <span style="color:var(--red)">&#62;1.2</span> agresivo
-      </div>
-    </div>`;
+  el.textContent = fmt(beta, 2);
+  el.style.color = color;
 }
 
 // Cache compartido del heatmap para no re-fetchear si ya se cargó
