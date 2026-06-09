@@ -324,6 +324,15 @@ a{color:inherit;text-decoration:none}
     <span id="market-status-text">—</span>
     <span class="market-countdown" id="market-countdown"></span>
   </div>
+  <div class="section" id="sec-semaforo">
+    <div class="section-header">
+      <span class="section-title">Semáforo de mercado</span>
+      <span id="semaforo-badge" style="font-size:.72rem;font-weight:700;padding:2px 10px;border-radius:20px;background:var(--surface2)">—</span>
+    </div>
+    <div class="card" id="semaforo-content">
+      <div class="loading"><div class="spinner"></div>Cargando…</div>
+    </div>
+  </div>
   <div class="section" id="sec-evo">
     <div class="section-header">
       <span class="section-title">Evolución del portafolio</span>
@@ -504,8 +513,34 @@ a{color:inherit;text-decoration:none}
 <div id="page-ideas" class="page">
   <div class="hero" style="padding-top:20px">
     <div class="hero-label">Ideas de inversión</div>
-    <div style="font-size:.82rem;color:var(--muted);margin-top:4px">Basado en correlación con tu portafolio · datos al cargar</div>
+    <div style="font-size:.82rem;color:var(--muted);margin-top:4px">Scoring · oportunidades · correlación · IA</div>
   </div>
+
+  <!-- Scoring de posiciones -->
+  <div class="section">
+    <div class="section-header">
+      <div style="display:flex;align-items:center;gap:7px">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div>
+        <span class="section-title">Scoring de posiciones</span>
+      </div>
+    </div>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Basado en momentum, distancia al objetivo y retorno acumulado</div>
+    <div id="ideas-scoring"><div class="loading"><div class="spinner"></div>Calculando…</div></div>
+  </div>
+
+  <!-- Oportunidades de entrada -->
+  <div class="section">
+    <div class="section-header">
+      <div style="display:flex;align-items:center;gap:7px">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--yellow);flex-shrink:0"></div>
+        <span class="section-title">Oportunidades de entrada</span>
+      </div>
+    </div>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Rating Buy · upside vs precio objetivo · caída reciente</div>
+    <div id="ideas-radar"><div class="loading"><div class="spinner"></div>Buscando oportunidades…</div></div>
+  </div>
+
+  <!-- Diversificación -->
   <div class="section">
     <div class="section-header">
       <div style="display:flex;align-items:center;gap:7px">
@@ -516,15 +551,18 @@ a{color:inherit;text-decoration:none}
     <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Activos con baja correlación a tus posiciones actuales</div>
     <div id="ideas-diversify"><div class="loading"><div class="spinner"></div>Calculando correlaciones…</div></div>
   </div>
+
+  <!-- Resumen semanal IA -->
   <div class="section">
     <div class="section-header">
       <div style="display:flex;align-items:center;gap:7px">
-        <div style="width:8px;height:8px;border-radius:50%;background:var(--yellow);flex-shrink:0"></div>
-        <span class="section-title">En el radar</span>
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--purple);flex-shrink:0"></div>
+        <span class="section-title">Resumen semanal IA</span>
       </div>
+      <button onclick="generarResumenIA()" id="btn-resumen-ia" style="background:var(--purple);color:#fff;border:none;border-radius:8px;padding:5px 14px;font-size:.78rem;font-weight:600;cursor:pointer">Generar</button>
     </div>
-    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Rating Buy / Strong Buy de analistas · caída reciente o upside significativo</div>
-    <div id="ideas-radar"><div class="loading"><div class="spinner"></div>Buscando oportunidades…</div></div>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Análisis completo de la semana · qué funcionó · qué hacer</div>
+    <div id="ideas-resumen-ia" class="card" style="display:none"></div>
   </div>
 </div>
 
@@ -1037,6 +1075,7 @@ async function renderHome(){
     if (fechaEl) fechaEl.textContent='Actualizado: '+resumen.fecha;
     buildDonut(posiciones);
     buildEvo();
+    renderSemaforo();
   } catch(e){
     console.error('Home:',e);
     document.getElementById('h-total').textContent = '—';
@@ -2138,6 +2177,12 @@ async function buildIdeas() {
 
   _ideasData = {diversify, radar, priceMap};
   _renderIdeas();
+
+  // Scoring de posiciones (usa datos ya cargados del portafolio)
+  try {
+    const {posiciones} = await get('portafolio');
+    renderScoring(posiciones);
+  } catch(e) { console.warn('Scoring:', e); }
 }
 
 function _ideaScore(a, section) {
@@ -2362,6 +2407,217 @@ function toggleBalance() {
   // Gráfico de evolución
   const canvas = document.getElementById('evo-chart');
   if (canvas) canvas.style.filter = balanceHidden ? 'blur(8px)' : '';
+}
+
+// ── SEMÁFORO DE MERCADO ───────────────────────────────────────
+async function renderSemaforo() {
+  const el    = document.getElementById('semaforo-content');
+  const badge = document.getElementById('semaforo-badge');
+  if (!el) return;
+
+  try {
+    const [vixJ, spyJ] = await Promise.all([
+      fetchYF('https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=5d'),
+      fetchYF('https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&range=1y')
+    ]);
+
+    // VIX
+    const vixCloses = vixJ?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(v=>v!=null)||[];
+    const vix = vixCloses[vixCloses.length-1];
+
+    // SPY vs MA50 y MA200
+    const spyCloses = spyJ?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(v=>v!=null)||[];
+    const spyLast   = spyCloses[spyCloses.length-1];
+    const ma50  = spyCloses.length>=50  ? spyCloses.slice(-50).reduce((s,v)=>s+v,0)/50   : null;
+    const ma200 = spyCloses.length>=200 ? spyCloses.slice(-200).reduce((s,v)=>s+v,0)/200 : null;
+
+    // Scoring individual por indicador
+    const indicators = [];
+
+    // 1. VIX
+    let vixColor, vixLabel, vixScore;
+    if (vix < 15)      { vixColor='var(--green)';  vixLabel='Calma';      vixScore=3; }
+    else if (vix < 20) { vixColor='var(--green)';  vixLabel='Normal';     vixScore=2; }
+    else if (vix < 30) { vixColor='var(--yellow)'; vixLabel='Precaución'; vixScore=1; }
+    else               { vixColor='var(--red)';    vixLabel='Miedo';      vixScore=0; }
+    indicators.push({label:'VIX', value:fmt(vix,1), sub:vixLabel, color:vixColor, score:vixScore});
+
+    // 2. SPY vs MA50
+    if (spyLast && ma50) {
+      const pct50 = (spyLast/ma50-1)*100;
+      const c = pct50>0?'var(--green)':pct50>-3?'var(--yellow)':'var(--red)';
+      const l = pct50>0?'Sobre MA50':'Bajo MA50';
+      indicators.push({label:'SPY / MA50', value:(pct50>=0?'+':'')+fmt(pct50,1)+'%', sub:l, color:c, score:pct50>0?2:pct50>-3?1:0});
+    }
+
+    // 3. SPY vs MA200
+    if (spyLast && ma200) {
+      const pct200 = (spyLast/ma200-1)*100;
+      const c = pct200>0?'var(--green)':pct200>-5?'var(--yellow)':'var(--red)';
+      const l = pct200>0?'Tendencia alcista':'Tendencia bajista';
+      indicators.push({label:'SPY / MA200', value:(pct200>=0?'+':'')+fmt(pct200,1)+'%', sub:l, color:c, score:pct200>0?2:pct200>-5?1:0});
+    }
+
+    // Score global
+    const totalScore = indicators.reduce((s,i)=>s+i.score,0);
+    const maxScore   = indicators.length * (indicators[0]?.score===3?3:2);
+    const ratio      = totalScore / (indicators.length * 2);
+    let globalColor, globalLabel;
+    if (ratio >= 0.75)      { globalColor='var(--green)';  globalLabel='🟢 Favorable'; }
+    else if (ratio >= 0.40) { globalColor='var(--yellow)'; globalLabel='🟡 Precaución'; }
+    else                    { globalColor='var(--red)';    globalLabel='🔴 Adverso'; }
+
+    badge.textContent    = globalLabel;
+    badge.style.color    = globalColor;
+    badge.style.background = 'var(--surface2)';
+
+    el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(${indicators.length},1fr);gap:8px">
+      ${indicators.map(i=>`
+        <div style="text-align:center;padding:10px 6px;background:var(--surface2);border-radius:10px;border:1px solid var(--border)">
+          <div style="font-size:.68rem;color:var(--muted);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">${i.label}</div>
+          <div style="font-size:1.1rem;font-weight:700;color:${i.color}">${i.value}</div>
+          <div style="font-size:.65rem;color:${i.color};margin-top:3px">${i.sub}</div>
+        </div>`).join('')}
+    </div>
+    <div style="margin-top:10px;padding:8px 10px;background:var(--surface2);border-radius:8px;font-size:.75rem;color:var(--muted)">
+      Contexto: operar a favor del semáforo reduce el riesgo de mercado no asociado a tus activos.
+    </div>`;
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:12px">No se pudo cargar.</div>';
+  }
+}
+
+// ── SCORING DE POSICIONES ─────────────────────────────────────
+async function renderScoring(posiciones) {
+  const el = document.getElementById('ideas-scoring');
+  if (!el || !posiciones?.length) return;
+
+  const scored = posiciones.map(p => {
+    let score = 50;
+
+    // 1. Distancia al objetivo (col S) — si está lejos por abajo, oportunidad de entrada
+    if (p.objetivo && p.precioActual) {
+      const distObj = (p.objetivo - p.precioActual) / p.precioActual * 100;
+      score += Math.min(25, Math.max(-25, distObj * 1.2));
+    }
+
+    // 2. Retorno acumulado — posición muy rentable = peso para reducir
+    if (p.retorno != null) {
+      const ret = p.retorno * 100;
+      score -= Math.min(20, Math.max(-10, ret * 0.4));
+    }
+
+    // 3. Variación del día — momentum corto plazo
+    if (p.varDia != null) {
+      const vd = p.varDia * 100;
+      score += Math.min(10, Math.max(-10, vd * 2));
+    }
+
+    // 4. Status (col T)
+    if (p.status === 'VENDER' || p.status === 'REDUCIR') score -= 20;
+    if (p.status === 'COMPRAR' || p.status === 'AUMENTAR') score += 15;
+
+    score = Math.round(Math.min(95, Math.max(5, score)));
+
+    // Acción recomendada
+    let accion, accionColor;
+    if (score >= 70)      { accion = 'Considerar entrada'; accionColor = 'var(--green)'; }
+    else if (score >= 55) { accion = 'Mantener y vigilar'; accionColor = 'var(--blue)'; }
+    else if (score >= 40) { accion = 'Mantener';           accionColor = 'var(--muted)'; }
+    else                  { accion = 'Considerar reducir'; accionColor = 'var(--yellow)'; }
+
+    return { ...p, score, accion, accionColor };
+  }).sort((a, b) => b.score - a.score);
+
+  el.innerHTML = scored.map(p => {
+    const distStr = (p.objetivo && p.precioActual)
+      ? ((p.objetivo - p.precioActual) / p.precioActual * 100).toFixed(1) + '% al obj.'
+      : '';
+    const retStr  = p.retorno != null ? (p.retorno*100>=0?'+':'')+fmt(p.retorno*100,1)+'% total' : '';
+    const vdStr   = p.varDia  != null ? (p.varDia*100>=0?'+':'')+fmt(p.varDia*100,2)+'% hoy' : '';
+
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="width:38px;height:38px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.62rem;font-weight:800;color:${p.score>=70?'var(--green)':p.score>=40?'var(--yellow)':'var(--red)'};border:2px solid ${p.score>=70?'var(--green)':p.score>=40?'var(--yellow)':'var(--red)'}">
+        ${p.score}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:.88rem">${p.ticker} <span style="font-size:.72rem;font-weight:400;color:var(--muted)">${p.nombre||''}</span></div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${[vdStr,retStr,distStr].filter(Boolean).join(' · ')}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:.78rem;font-weight:600;color:${p.accionColor}">${p.accion}</div>
+        <div style="font-size:.68rem;color:var(--muted);margin-top:2px">${usd(p.valorUSD||0)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── RESUMEN SEMANAL IA ────────────────────────────────────────
+async function generarResumenIA() {
+  const btn = document.getElementById('btn-resumen-ia');
+  const el  = document.getElementById('ideas-resumen-ia');
+  if (!el) return;
+
+  if (!geminiKey || (!geminiKey.startsWith('gsk_') && !geminiKey.startsWith('AIza'))) {
+    el.style.display='block';
+    el.innerHTML='<div style="color:var(--muted);font-size:.82rem;padding:8px">Primero configura tu API key de Groq en el chat (ícono 💬).</div>';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Generando…';
+  el.style.display = 'block';
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Consultando IA…</div>';
+
+  try {
+    const {resumen, posiciones} = await get('portafolio');
+    const hoy   = new Date().toLocaleDateString('es-CL');
+    const detalle = posiciones.map(p =>
+      `${p.ticker}: precio $${fmt(p.precioActual,2)}, variación día ${(p.varDia*100).toFixed(2)}%, retorno total ${(p.retorno*100).toFixed(1)}%, valor $${fmt(p.valorUSD,2)}`
+    ).join('\n');
+
+    const prompt = `Eres un asesor financiero personal. Hoy es ${hoy}.
+
+PORTAFOLIO:
+Valor total: $${fmt(resumen.valor,2)}
+Ganancia acumulada: ${resumen.ganancia>=0?'+':''}$${fmt(resumen.ganancia,2)} (${(resumen.retorno*100).toFixed(2)}%)
+
+POSICIONES:
+${detalle}
+
+Genera un resumen semanal accionable en español con este formato:
+
+RESUMEN SEMANAL — ${hoy}
+
+LO QUE FUNCIONÓ
+[2-3 posiciones con mejor desempeño y por qué]
+
+LO QUE NO FUNCIONÓ
+[1-2 posiciones con peor desempeño y causa probable]
+
+CONTEXTO MACRO
+[2 líneas sobre el estado actual del mercado que afecta este portafolio]
+
+ACCIONES PARA ESTA SEMANA
+[3 acciones concretas y específicas: qué vigilar, qué considerar comprar/vender/mantener]
+
+Máximo 250 palabras. Directo y útil.`;
+
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${geminiKey}` },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], max_tokens: 600 })
+    });
+    const data = await res.json();
+    const text = (data.choices?.[0]?.message?.content || 'Sin respuesta').replace(/\*\*/g,'').replace(/\*/g,'').replace(/^#+\s/gm,'');
+
+    el.innerHTML = `<div style="font-size:.82rem;line-height:1.7;white-space:pre-wrap;color:var(--text)">${text}</div>
+      <div style="margin-top:10px;font-size:.68rem;color:var(--muted);text-align:right">Generado ${new Date().toLocaleTimeString('es-CL')}</div>`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--red);font-size:.82rem">Error: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Generar';
+  }
 }
 
 // ── INIT ──────────────────────────────────────────────────────
