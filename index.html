@@ -395,6 +395,14 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
     <div class="section-sub">Qué funcionó esta semana · qué no · qué hacer</div>
     <div id="ideas-resumen-ia" class="card" style="display:none"></div>
   </div>
+  <div class="section" id="sec-caja">
+    <div class="section-header">
+      <span class="section-title"><svg class="ico-xs ico" style="color:var(--green)"><use href="#i-coin"/></svg> Caja inteligente · Warren</span>
+      <button onclick="analizarCaja()" id="btn-caja" class="btn btn-primary">Analizar</button>
+    </div>
+    <div class="section-sub">¿Usar la caja ahora o esperar? Según semáforo y posiciones en zona de entrada</div>
+    <div id="caja-analisis" class="card" style="display:none"></div>
+  </div>
   <div class="section" id="sec-evo">
     <div class="section-header">
       <span class="section-title">Evolución del portafolio</span>
@@ -468,6 +476,16 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
       </div>
     </div>
     <div class="card" id="pos-list">
+      <div class="loading"><div class="spinner"></div>Cargando…</div>
+    </div>
+  </div>
+  <div class="section" id="sec-journal">
+    <div class="section-header">
+      <span class="section-title"><svg class="ico-xs ico" style="color:var(--orange)"><use href="#i-news"/></svg> Journal de operaciones</span>
+      <button onclick="openJournalModal()" class="btn btn-primary" style="font-size:.74rem;padding:5px 12px">Registrar</button>
+    </div>
+    <div class="section-sub">Cada operación con su motivo · revisa qué razonamientos funcionan</div>
+    <div class="card" id="journal-list">
       <div class="loading"><div class="spinner"></div>Cargando…</div>
     </div>
   </div>
@@ -658,6 +676,42 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
   </div>
 </div>
 
+<!-- Modal journal -->
+<div id="journal-modal-overlay" class="bnc-modal-overlay" style="display:none" onclick="if(event.target===this)closeJournalModal()">
+  <div class="bnc-modal">
+    <h3 style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><svg class="ico-sm ico" style="color:var(--orange)"><use href="#i-news"/></svg> Registrar operación</h3>
+    <div style="display:flex;gap:8px">
+      <div style="flex:1">
+        <label>Ticker</label>
+        <input id="jr-ticker" type="text" placeholder="NVDA" autocomplete="off" style="text-transform:uppercase">
+      </div>
+      <div style="flex:1">
+        <label>Tipo</label>
+        <select id="jr-tipo" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:.82rem;margin-bottom:10px">
+          <option value="compra">Compra</option>
+          <option value="venta">Venta</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <div style="flex:1">
+        <label>Precio (USD)</label>
+        <input id="jr-precio" type="number" step="any" placeholder="120.50" autocomplete="off">
+      </div>
+      <div style="flex:1">
+        <label>Cantidad</label>
+        <input id="jr-cantidad" type="number" step="any" placeholder="0.5" autocomplete="off">
+      </div>
+    </div>
+    <label>Motivo — ¿por qué haces esta operación?</label>
+    <textarea id="jr-motivo" rows="3" placeholder="Ej: rompió resistencia con volumen, semáforo favorable, RSI saliendo de sobreventa…" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:.82rem;margin-bottom:10px;font-family:inherit;resize:vertical"></textarea>
+    <div class="bnc-modal-btns">
+      <button class="bnc-cancel-btn" onclick="closeJournalModal()">Cancelar</button>
+      <button class="bnc-save-btn" style="background:var(--blue);color:#fff" id="jr-save-btn" onclick="saveJournalEntry()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal config Binance -->
 <div id="bnc-modal-overlay" class="bnc-modal-overlay" style="display:none" onclick="if(event.target===this)closeBncModal()">
   <div class="bnc-modal">
@@ -741,7 +795,7 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 <script src="https://s3.tradingview.com/tv.js" async></script>
 <script>
 // ── CONFIG ────────────────────────────────────────────────────
-const API = 'https://script.google.com/macros/s/AKfycbyvGbpkDZvipPC6F8Doxd-QsyLwwjNjt7u0Zdu0JcKqGjjPxLvTufKMzh5rA0EQqkj9IQ/exec';
+const API = 'https://script.google.com/macros/s/AKfycbzf5GTt1JUrftY5sGG2I3LVbFrRHyNO4LAxlthWPvRE1FJsDUKdqev2jc6Nxik86-bh/exec';
 
 const TV_SYM = {
   TSLA:'NASDAQ:TSLA', NVDA:'NASDAQ:NVDA', ASML:'NASDAQ:ASML',
@@ -921,43 +975,66 @@ async function hmacSha256(secret, message) {
   return Array.from(new Uint8Array(sig)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
+// Hosts alternativos de Binance: misma API, misma firma. El proxy CORS no sirve
+// para endpoints firmados (no reenvía el header X-MBX-APIKEY).
+const BNC_HOSTS = ['api.binance.com','api1.binance.com','api2.binance.com','api3.binance.com'];
+
+async function bncParse(resp, host) {
+  const text = await resp.text();
+  let data;
+  try { data = JSON.parse(text); }
+  catch { throw new Error(`${host} respondió HTTP ${resp.status} (no JSON). Reintenta en unos segundos.`); }
+  if (data.code && data.msg) throw new Error(`Binance ${data.code}: ${data.msg}`);
+  return data;
+}
+
 async function fetchBinanceAccount() {
   const apiKey = localStorage.getItem('bnc_key');
   const secret = localStorage.getItem('bnc_secret');
   if (!apiKey || !secret) return null;
-  // Usar timestamp del servidor de Binance para evitar error -1021
+
+  // Timestamp del servidor para evitar error -1021
   let ts = Date.now();
-  try {
-    const srv = await fetch('https://api.binance.com/api/v3/time');
-    const { serverTime } = await srv.json();
-    if (serverTime) ts = serverTime;
-  } catch {};
-  const qs = 'timestamp=' + ts;
-  const sig = await hmacSha256(secret, qs);
-  // Intentar directo, luego con proxy si falla por CORS
-  const endpoint = `https://api.binance.com/api/v3/account?${qs}&signature=${sig}`;
-  let resp;
-  try {
-    resp = await fetch(endpoint, { headers: { 'X-MBX-APIKEY': apiKey } });
-  } catch(e) {
-    // CORS fallback
-    const proxy = 'https://corsproxy.io/?url=' + encodeURIComponent(endpoint);
-    resp = await fetch(proxy, { headers: { 'X-MBX-APIKEY': apiKey } });
+  for (const h of BNC_HOSTS) {
+    try {
+      const r = await fetch(`https://${h}/api/v3/time`);
+      const j = await bncParse(r, h);
+      if (j.serverTime) { ts = j.serverTime; break; }
+    } catch {}
   }
-  const data = await resp.json();
-  if (data.code) throw new Error('Binance error ' + data.code + ': ' + data.msg);
-  return data;
+
+  const qs  = `timestamp=${ts}&recvWindow=10000`;
+  const sig = await hmacSha256(secret, qs);
+
+  let lastErr = new Error('No se pudo conectar con Binance');
+  for (const h of BNC_HOSTS) {
+    try {
+      const resp = await fetch(`https://${h}/api/v3/account?${qs}&signature=${sig}`, {
+        headers: { 'X-MBX-APIKEY': apiKey },
+        signal: AbortSignal.timeout(10000)
+      });
+      return await bncParse(resp, h);
+    } catch(e) {
+      lastErr = e;
+      // Errores de auth/firma no se solucionan cambiando de host
+      if (/Binance -\d+/.test(e.message)) throw e;
+    }
+  }
+  throw lastErr;
 }
 
 async function fetchBinancePrices(assets) {
   if (!assets.length) return { USDT: 1 };
-  try {
-    const resp = await fetch('https://api.binance.com/api/v3/ticker/price');
-    const all = await resp.json();
-    const map = { USDT: 1 };
-    assets.forEach(a => { const t = all.find(x => x.symbol === a+'USDT'); if(t) map[a]=parseFloat(t.price); });
-    return map;
-  } catch(e) { return { USDT: 1 }; }
+  for (const h of BNC_HOSTS) {
+    try {
+      const resp = await fetch(`https://${h}/api/v3/ticker/price`, {signal: AbortSignal.timeout(8000)});
+      const all = await bncParse(resp, h);
+      const map = { USDT: 1 };
+      assets.forEach(a => { const t = all.find(x => x.symbol === a+'USDT'); if(t) map[a]=parseFloat(t.price); });
+      return map;
+    } catch {}
+  }
+  return { USDT: 1 };
 }
 
 async function renderCrypto() {
@@ -1232,6 +1309,7 @@ async function renderPortfolio(){
     retEl.className='meta-value '+cls(resumen.retorno);
     renderPosRows(posiciones);
     calcPortfolioBeta(posiciones);
+    renderJournal();
     buildHeatmap('heatmap-pf-container');
   } catch(e){ console.error('Portfolio:',e); el.innerHTML='<div class="loading">Error al cargar posiciones.</div>'; }
 }
@@ -2456,6 +2534,70 @@ function toggleBalance() {
   if (canvas) canvas.style.filter = balanceHidden ? 'blur(8px)' : '';
 }
 
+// ── JOURNAL DE OPERACIONES ────────────────────────────────────
+async function renderJournal(force = false) {
+  const el = document.getElementById('journal-list');
+  if (!el) return;
+  try {
+    const { journal } = await get('journal', force);
+    const entries = journal || [];
+    if (!entries.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:20px 16px">Sin operaciones registradas.<br><span style="font-size:.74rem;color:var(--faint)">Registra cada compra/venta con su motivo — en unos meses sabrás qué razonamientos te funcionan.</span></div>';
+      return;
+    }
+    el.innerHTML = entries.slice(0, 20).map(e => {
+      const esCompra = e.tipo === 'Compra';
+      const color = esCompra ? 'var(--green)' : 'var(--red)';
+      const bg    = esCompra ? 'var(--green-bg)' : 'var(--red-bg)';
+      const fecha = e.fecha ? new Date(e.fecha).toLocaleDateString('es-CL', {day:'2-digit', month:'short'}) : '—';
+      return `<div style="padding:11px 16px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="background:${bg};color:${color};border-radius:4px;padding:2px 8px;font-size:.66rem;font-weight:700">${e.tipo}</span>
+          <span style="font-weight:700;font-size:.88rem">${e.ticker}</span>
+          <span class="num" style="font-size:.78rem;color:var(--muted)">${e.cantidad ? fmt(e.cantidad, 4) + ' × ' : ''}${usd(e.precio)}</span>
+          <span style="margin-left:auto;font-size:.68rem;color:var(--faint)">${fecha}</span>
+        </div>
+        ${e.motivo ? `<div style="font-size:.76rem;color:var(--muted);line-height:1.5">${e.motivo}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(err) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:16px">No se pudo cargar el journal.</div>';
+  }
+}
+
+function openJournalModal() {
+  document.getElementById('journal-modal-overlay').style.display = 'flex';
+  document.getElementById('jr-ticker').focus();
+}
+function closeJournalModal() {
+  document.getElementById('journal-modal-overlay').style.display = 'none';
+}
+
+async function saveJournalEntry() {
+  const ticker   = document.getElementById('jr-ticker').value.trim().toUpperCase();
+  const tipo     = document.getElementById('jr-tipo').value;
+  const precio   = document.getElementById('jr-precio').value;
+  const cantidad = document.getElementById('jr-cantidad').value;
+  const motivo   = document.getElementById('jr-motivo').value.trim();
+  if (!ticker || !precio) { alert('Ticker y precio son obligatorios'); return; }
+
+  const btn = document.getElementById('jr-save-btn');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const url = `${API}?action=journal_add&ticker=${encodeURIComponent(ticker)}&tipo=${tipo}&precio=${encodeURIComponent(precio)}&cantidad=${encodeURIComponent(cantidad||0)}&motivo=${encodeURIComponent(motivo)}&_t=${Date.now()}`;
+    const res = await fetch(url).then(r => r.json());
+    if (res.error) throw new Error(res.error);
+    ['jr-ticker','jr-precio','jr-cantidad','jr-motivo'].forEach(id => document.getElementById(id).value = '');
+    closeJournalModal();
+    cache['journal'] = null;
+    renderJournal(true);
+  } catch(e) {
+    alert('Error al guardar: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar';
+  }
+}
+
 // ── SEMÁFORO DE MERCADO ───────────────────────────────────────
 async function renderSemaforo() {
   const el    = document.getElementById('semaforo-content');
@@ -2525,6 +2667,9 @@ async function renderSemaforo() {
 
     badge.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${globalColor};display:inline-block"></span>${globalLabel}`;
     badge.style.color = globalColor;
+
+    // Estado global reutilizable (caja inteligente, Warren)
+    window._semaforo = { label: globalLabel, detalle: indicators.map(i => `${i.label} ${i.value} (${i.sub})`).join(', ') };
 
     el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(${indicators.length},1fr);gap:8px">
       ${indicators.map(i=>`
@@ -2607,6 +2752,82 @@ async function renderScoring(posiciones) {
   }).join('');
 }
 
+// ── CAJA INTELIGENTE ──────────────────────────────────────────
+async function analizarCaja() {
+  const btn = document.getElementById('btn-caja');
+  const el  = document.getElementById('caja-analisis');
+  if (!el) return;
+
+  if (!geminiKey || (!geminiKey.startsWith('gsk_') && !geminiKey.startsWith('AIza'))) {
+    el.style.display = 'block';
+    el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;padding:12px 16px">Primero configura tu API key de Groq en el chat de Warren (botón flotante).</div>';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Analizando…';
+  el.style.display = 'block';
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Evaluando contexto…</div>';
+
+  try {
+    const { resumen, posiciones } = await get('portafolio');
+    const caja = resumen.caja || 0;
+
+    // Posiciones con espacio hasta su precio objetivo (candidatas a aporte)
+    const candidatas = posiciones
+      .filter(p => p.objetivo && p.precioActual && p.objetivo > p.precioActual)
+      .map(p => ({ ...p, upside: (p.objetivo - p.precioActual) / p.precioActual * 100 }))
+      .sort((a, b) => b.upside - a.upside)
+      .slice(0, 5);
+
+    const semaforo = window._semaforo || { label: 'desconocido', detalle: 'sin datos' };
+
+    const prompt = `Eres Warren, asesor financiero personal. Hoy es ${new Date().toLocaleDateString('es-CL')}.
+
+CONTEXTO DE MERCADO (semáforo propio):
+Estado: ${semaforo.label}
+Indicadores: ${semaforo.detalle}
+
+CAJA DISPONIBLE: $${fmt(caja, 2)}
+VALOR TOTAL PORTAFOLIO: $${fmt(resumen.valor, 2)}
+
+POSICIONES CON ESPACIO HASTA SU PRECIO OBJETIVO:
+${candidatas.length ? candidatas.map(p => `${p.ticker}: precio $${fmt(p.precioActual,2)}, objetivo $${fmt(p.objetivo,2)} (upside ${fmt(p.upside,1)}%), variación hoy ${(p.varDia*100).toFixed(2)}%`).join('\n') : 'Ninguna posición está bajo su precio objetivo.'}
+
+Responde en español, máximo 130 palabras, con este formato:
+
+VEREDICTO
+[Una línea clara: usar la caja ahora / esperar / aporte parcial]
+
+POR QUÉ
+[2-3 líneas combinando el semáforo y las posiciones candidatas]
+
+SI DECIDES ENTRAR
+[1 línea: en qué activo concreto y por qué ese — o "no hay candidatos claros"]
+
+Sé directo. No des disclaimers genéricos.`;
+
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${geminiKey}` },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], max_tokens: 350 })
+    });
+    const data = await res.json();
+    const text = (data.choices?.[0]?.message?.content || 'Sin respuesta').replace(/\*\*/g,'').replace(/\*/g,'').replace(/^#+\s/gm,'');
+
+    el.innerHTML = `<div style="padding:14px 16px">
+      <div style="font-size:.82rem;line-height:1.7;white-space:pre-wrap">${text}</div>
+      <div style="margin-top:10px;font-size:.66rem;color:var(--faint);display:flex;justify-content:space-between">
+        <span>Caja: ${usd(caja)} · Semáforo: ${semaforo.label}</span>
+        <span>${new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})}</span>
+      </div>
+    </div>`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--red);font-size:.82rem;padding:12px 16px">Error: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Analizar';
+  }
+}
+
 // ── RESUMEN SEMANAL IA ────────────────────────────────────────
 async function generarResumenIA() {
   const btn = document.getElementById('btn-resumen-ia');
@@ -2682,8 +2903,10 @@ Máximo 250 palabras. Directo y específico a estas posiciones.`;
     const data = await res.json();
     const text = (data.choices?.[0]?.message?.content || 'Sin respuesta').replace(/\*\*/g,'').replace(/\*/g,'').replace(/^#+\s/gm,'');
 
-    el.innerHTML = `<div style="font-size:.82rem;line-height:1.7;white-space:pre-wrap;color:var(--text)">${text}</div>
-      <div style="margin-top:10px;font-size:.68rem;color:var(--muted);text-align:right">Generado ${new Date().toLocaleTimeString('es-CL')}</div>`;
+    el.innerHTML = `<div style="padding:14px 16px">
+      <div style="font-size:.82rem;line-height:1.7;white-space:pre-wrap;color:var(--text)">${text}</div>
+      <div style="margin-top:10px;font-size:.66rem;color:var(--faint);text-align:right">Generado ${new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})}</div>
+    </div>`;
   } catch(e) {
     el.innerHTML = `<div style="color:var(--red);font-size:.82rem">Error: ${e.message}</div>`;
   } finally {
