@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Mi Portafolio</title>
 <meta name="description" content="Dashboard de seguimiento de inversiones personales">
-<meta name="theme-color" content="#161b22">
+<meta name="theme-color" content="#0b0e14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,54 +15,83 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;
-  --text:#e6edf3;--muted:#7d8590;--green:#3fb950;--red:#f85149;
-  --blue:#58a6ff;--yellow:#d29922;--purple:#bc8cff;--orange:#ffa657
+  --bg:#0b0e14;--surface:#11151c;--surface2:#1a2029;--surface3:#232a35;
+  --border:#262e39;--border-strong:#37414e;
+  --text:#e8edf4;--muted:#8b95a3;--faint:#5c6470;
+  --green:#34d07c;--red:#f4596b;--blue:#4f9cf9;--yellow:#e0a93e;
+  --purple:#a78bfa;--orange:#fb923c;
+  --green-bg:rgba(52,208,124,.12);--red-bg:rgba(244,89,107,.12);
+  --blue-bg:rgba(79,156,249,.12);--yellow-bg:rgba(224,169,62,.12);
+  --r-sm:8px;--r-md:12px;--r-lg:16px;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.18);
 }
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:72px}
+html{-webkit-text-size-adjust:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:calc(64px + env(safe-area-inset-bottom,0px) + 8px);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 a{color:inherit;text-decoration:none}
+button{font-family:inherit;-webkit-tap-highlight-color:transparent}
+::selection{background:var(--blue-bg)}
+.num,.hero-total,.meta-value,.pos-val,.pos-var,.idx-price,.idx-var,.var-val,.fund-val{font-variant-numeric:tabular-nums}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* ICONS */
+.ico{width:20px;height:20px;flex-shrink:0;display:inline-block;vertical-align:middle}
+.ico-sm{width:15px;height:15px}
+.ico-xs{width:13px;height:13px}
 
 /* NAV */
-.nav-bar{position:fixed;bottom:0;left:0;right:0;height:64px;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:300}
-.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;color:var(--muted);font-size:.65rem;font-weight:500;border:none;background:none;transition:color .15s}
+.nav-bar{position:fixed;bottom:0;left:0;right:0;height:calc(64px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:rgba(17,21,28,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border);display:flex;z-index:300}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--faint);font-size:.62rem;font-weight:600;letter-spacing:.01em;border:none;background:none;transition:color .15s}
 .nav-item.active{color:var(--blue)}
-.nav-icon{font-size:1.2rem}
+.nav-item .ico{width:21px;height:21px}
 
 /* PAGES */
 .page{display:none}.page.active{display:block}
 
 /* HERO */
-.market-banner{display:flex;align-items:center;gap:8px;padding:6px 16px;font-size:.78rem;font-weight:500;color:var(--text);background:var(--surface);border-bottom:1px solid var(--border)}
-.market-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.market-dot.open{background:#22c55e;box-shadow:0 0 6px #22c55e88}
-.market-dot.closed{background:#ef4444}
-.market-countdown{margin-left:auto;color:var(--muted);font-size:.73rem}
-.hero{padding:20px 16px 12px}
+.market-banner{display:flex;align-items:center;gap:8px;padding:7px 16px;font-size:.76rem;font-weight:500;color:var(--muted);background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.market-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.market-dot.open{background:var(--green);box-shadow:0 0 8px var(--green)}
+.market-dot.closed{background:var(--red)}
+.market-countdown{margin-left:auto;color:var(--faint);font-size:.72rem;font-variant-numeric:tabular-nums}
+.hero{padding:24px 16px 16px}
 #page-home .hero{text-align:center}
 #page-home .hero-meta{justify-content:center}
-#page-home .hero .hero-label-row{justify-content:center}
-.hero-label{font-size:.72rem;color:var(--muted);font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
-.hero-total{font-size:2.8rem;font-weight:700;line-height:1}
-.hero-meta{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px}
-.meta-item{display:flex;flex-direction:column;gap:1px}
-.meta-label{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-.meta-value{font-size:.95rem;font-weight:600}
+.hero-label{font-size:.7rem;color:var(--muted);font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+#page-home .hero-label{justify-content:center}
+.hero-total{font-size:2.6rem;font-weight:700;line-height:1.05;letter-spacing:-.02em}
+.hero-meta{display:flex;gap:24px;flex-wrap:wrap;margin-top:14px}
+.meta-item{display:flex;flex-direction:column;gap:2px}
+.meta-label{font-size:.62rem;color:var(--faint);text-transform:uppercase;letter-spacing:.07em;font-weight:600}
+.meta-value{font-size:.95rem;font-weight:650}
 
 /* SECTION */
-.section{padding:6px 16px 10px}
-.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-top:4px}
-.section-title{font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.section{padding:8px 16px 12px}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-top:4px;min-height:26px}
+.section-title{font-size:.7rem;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.09em;display:flex;align-items:center;gap:7px}
+.section-sub{font-size:.72rem;color:var(--faint);margin:-4px 0 10px;line-height:1.45}
 
 /* TOGGLE PILL */
-.toggle-pill{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:20px;overflow:hidden}
-.tpill-btn{padding:3px 12px;font-size:.68rem;font-weight:600;border:none;background:none;color:var(--muted);cursor:pointer;transition:all .15s}
+.toggle-pill{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:99px;overflow:hidden;padding:2px}
+.tpill-btn{padding:3px 12px;font-size:.68rem;font-weight:600;border:none;background:none;color:var(--muted);cursor:pointer;transition:all .15s;border-radius:99px}
 .tpill-btn.active{background:var(--blue);color:#fff}
 
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:var(--r-sm);padding:6px 14px;font-size:.78rem;font-weight:600;cursor:pointer;transition:opacity .15s,transform .1s}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-accent{background:var(--purple);color:#fff}
+.btn-ghost{background:none;color:var(--muted);padding:4px 8px}
+.btn-ghost:hover{color:var(--text)}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--surface2);letter-spacing:.02em}
+
 /* CARDS */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;margin-bottom:10px;box-shadow:var(--shadow)}
 
 /* CHART BOX */
-.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px}
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
 
 /* POSITION ROWS — QUINENCO FIX: ticker columna más ancha + overflow */
 .pos-row{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
@@ -182,7 +211,7 @@ a{color:inherit;text-decoration:none}
 .nf-chip.active{background:var(--blue);border-color:var(--blue);color:#fff}
 
 /* ── CHAT FAB ── */
-#chat-fab{position:fixed;bottom:80px;right:16px;width:48px;height:48px;border-radius:50%;background:var(--blue);border:none;font-size:1.3rem;cursor:pointer;box-shadow:0 4px 16px rgba(88,166,255,.4);z-index:310;transition:transform .15s}
+#chat-fab{position:fixed;bottom:calc(80px + env(safe-area-inset-bottom,0px));right:16px;width:50px;height:50px;border-radius:50%;background:var(--blue);border:none;cursor:pointer;box-shadow:0 4px 20px rgba(79,156,249,.45);z-index:310;transition:transform .15s;display:flex;align-items:center;justify-content:center}
 #chat-fab:hover{transform:scale(1.08)}
 #chat-fab.open{display:none}
 
@@ -271,7 +300,9 @@ a{color:inherit;text-decoration:none}
   .nav-bar{width:220px;height:100vh;flex-direction:column;border-right:1px solid var(--border);border-top:none;right:auto;padding:0 0 16px;justify-content:flex-start;gap:2px;overflow-y:auto}
   .nav-brand{display:flex!important;align-items:center;gap:8px;padding:20px 20px 16px;font-size:.9rem;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);margin-bottom:8px}
   .nav-item{flex:0 0 auto;flex-direction:row;justify-content:flex-start;gap:10px;padding:10px 20px;font-size:.83rem;border-radius:8px;margin:0 8px;width:auto}
-  .nav-icon{font-size:1rem}
+  .nav-item:hover{color:var(--muted);background:var(--surface2)}
+  .nav-item.active{color:var(--blue);background:var(--blue-bg)}
+  .nav-item .ico{width:18px;height:18px}
 
   /* content panels */
   #chat-panel{left:220px;width:calc(100vw - 220px);right:0;bottom:0;height:100vh}
@@ -297,6 +328,29 @@ a{color:inherit;text-decoration:none}
 </head>
 <body>
 
+<!-- ====== ICON SPRITE ====== -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="i-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9"/><path d="M12 3v9l6.36-6.36"/><path d="M21 7V3h-4"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 13l4-4 4 4 5-6"/></symbol>
+  <symbol id="i-news" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.5 7.5h4a2 2 0 0 1 0 4h-4zm0 4h4.5a2 2 0 0 1 0 4H9.5z"/><path d="M11 5.5v2m2-2v2m-2 9v2m2-2v2"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.7a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.7a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></symbol>
+</svg>
+
 <!-- ====== HOME ====== -->
 <div id="page-home" class="page active">
   <div class="hero" style="position:relative">
@@ -311,7 +365,7 @@ a{color:inherit;text-decoration:none}
           <line x1="1" y1="1" x2="23" y2="23"/>
         </svg>
       </button>
-    <div class="hero-label">📊 Mi Portafolio</div>
+    <div class="hero-label"><svg class="ico-sm ico" style="color:var(--blue)"><use href="#i-logo"/></svg> Mi Portafolio</div>
     <div class="hero-total" id="h-total">—</div>
     <div class="hero-meta">
       <div class="meta-item"><span class="meta-label">Ganancia</span><span class="meta-value" id="h-gp">—</span></div>
@@ -327,7 +381,7 @@ a{color:inherit;text-decoration:none}
   <div class="section" id="sec-semaforo">
     <div class="section-header">
       <span class="section-title">Semáforo de mercado</span>
-      <span id="semaforo-badge" style="font-size:.72rem;font-weight:700;padding:2px 10px;border-radius:20px;background:var(--surface2)">—</span>
+      <span id="semaforo-badge" class="badge">—</span>
     </div>
     <div class="card" id="semaforo-content">
       <div class="loading"><div class="spinner"></div>Cargando…</div>
@@ -335,13 +389,10 @@ a{color:inherit;text-decoration:none}
   </div>
   <div class="section">
     <div class="section-header">
-      <div style="display:flex;align-items:center;gap:7px">
-        <div style="width:8px;height:8px;border-radius:50%;background:var(--purple);flex-shrink:0"></div>
-        <span class="section-title">Resumen semanal · Warren</span>
-      </div>
-      <button onclick="generarResumenIA()" id="btn-resumen-ia" style="background:var(--purple);color:#fff;border:none;border-radius:8px;padding:5px 14px;font-size:.78rem;font-weight:600;cursor:pointer">Generar</button>
+      <span class="section-title"><svg class="ico-xs ico" style="color:var(--purple)"><use href="#i-spark"/></svg> Resumen semanal · Warren</span>
+      <button onclick="generarResumenIA()" id="btn-resumen-ia" class="btn btn-accent">Generar</button>
     </div>
-    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Qué funcionó esta semana · qué no · qué hacer</div>
+    <div class="section-sub">Qué funcionó esta semana · qué no · qué hacer</div>
     <div id="ideas-resumen-ia" class="card" style="display:none"></div>
   </div>
   <div class="section" id="sec-evo">
@@ -435,7 +486,7 @@ a{color:inherit;text-decoration:none}
 <!-- ====== STOCK DETAIL ====== -->
 <div id="page-stock" class="page">
   <div class="page-header">
-    <button class="back-btn" onclick="goBack()">← Atrás</button>
+    <button class="back-btn" onclick="goBack()" style="display:inline-flex;align-items:center;gap:2px"><svg class="ico-sm ico"><use href="#i-back"/></svg> Atrás</button>
     <span class="header-title" id="s-header">—</span>
   </div>
   <div class="stock-hero">
@@ -481,11 +532,11 @@ a{color:inherit;text-decoration:none}
 <!-- ====== NOTICIAS ====== -->
 <div id="page-noticias" class="page">
   <div class="hero" style="padding-top:20px">
-    <div class="hero-label">📰 Noticias</div>
+    <div class="hero-label"><svg class="ico-sm ico"><use href="#i-news"/></svg> Noticias</div>
     <div style="font-size:1rem;font-weight:600;color:var(--muted)" id="news-date">—</div>
   </div>
   <div class="section">
-    <div class="section-title">📅 Próximos earnings</div>
+    <div class="section-title"><svg class="ico-xs ico"><use href="#i-calendar"/></svg> Próximos earnings</div>
     <div class="card" id="earnings-list">
       <div class="loading"><div class="spinner"></div>Cargando…</div>
     </div>
@@ -503,19 +554,19 @@ a{color:inherit;text-decoration:none}
 <!-- ====== INDICES ====== -->
 <div id="page-indices" class="page">
   <div class="hero" style="padding-top:20px">
-    <div class="hero-label">🌐 Mercados globales</div>
+    <div class="hero-label"><svg class="ico-sm ico"><use href="#i-globe"/></svg> Mercados globales</div>
     <div style="font-size:1rem;font-weight:600;color:var(--muted)" id="idx-date">—</div>
   </div>
   <div class="section">
-    <div class="section-title">🇺🇸 Estados Unidos</div>
+    <div class="section-title">Estados Unidos</div>
     <div class="card" id="idx-us"><div class="loading"><div class="spinner"></div>Cargando…</div></div>
   </div>
   <div class="section">
-    <div class="section-title">🌍 Europa</div>
+    <div class="section-title">Europa</div>
     <div class="card" id="idx-eu"><div class="loading"><div class="spinner"></div>Cargando…</div></div>
   </div>
   <div class="section">
-    <div class="section-title">🌏 Asia & Oceanía</div>
+    <div class="section-title">Asia & Oceanía</div>
     <div class="card" id="idx-asia"><div class="loading"><div class="spinner"></div>Cargando…</div></div>
   </div>
 </div>
@@ -530,24 +581,18 @@ a{color:inherit;text-decoration:none}
   <!-- Oportunidades de entrada -->
   <div class="section">
     <div class="section-header">
-      <div style="display:flex;align-items:center;gap:7px">
-        <div style="width:8px;height:8px;border-radius:50%;background:var(--yellow);flex-shrink:0"></div>
-        <span class="section-title">Oportunidades de entrada</span>
-      </div>
+      <span class="section-title"><svg class="ico-xs ico" style="color:var(--yellow)"><use href="#i-zap"/></svg> Oportunidades de entrada</span>
     </div>
-    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Acciones y ETFs con rating Buy · upside vs precio objetivo · caída reciente</div>
+    <div class="section-sub">Acciones y ETFs con rating Buy · upside vs precio objetivo · caída reciente</div>
     <div id="ideas-radar"><div class="loading"><div class="spinner"></div>Buscando oportunidades…</div></div>
   </div>
 
   <!-- Diversificación -->
   <div class="section">
     <div class="section-header">
-      <div style="display:flex;align-items:center;gap:7px">
-        <div style="width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0"></div>
-        <span class="section-title">Diversifica tu portafolio</span>
-      </div>
+      <span class="section-title"><svg class="ico-xs ico" style="color:var(--blue)"><use href="#i-globe"/></svg> Diversifica tu portafolio</span>
     </div>
-    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Activos con baja correlación a tus posiciones actuales</div>
+    <div class="section-sub">Activos con baja correlación a tus posiciones actuales</div>
     <div id="ideas-diversify"><div class="loading"><div class="spinner"></div>Calculando correlaciones…</div></div>
   </div>
 </div>
@@ -566,7 +611,7 @@ a{color:inherit;text-decoration:none}
         <div class="idx-sheet-title" id="idx-sheet-name">—</div>
         <div class="idx-sheet-var" id="idx-sheet-var">—</div>
       </div>
-      <button class="idx-sheet-close" onclick="closeIdxSheet()">✕</button>
+      <button class="idx-sheet-close" onclick="closeIdxSheet()"><svg class="ico-sm ico"><use href="#i-close"/></svg></button>
     </div>
   </div>
   <div class="idx-sheet-news">
@@ -598,14 +643,14 @@ a{color:inherit;text-decoration:none}
       <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:24px 0;color:var(--muted)">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#F0B90B" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-.93-6.63-.82-8.94 0-2.58.92-5.01 2.86-7.44 6.32"/></svg>
         <span style="font-size:.88rem">Conecta tu cuenta de Binance</span>
-        <button onclick="openBncModal()" style="background:#F0B90B;color:#000;border:none;border-radius:8px;padding:9px 20px;font-size:.85rem;font-weight:700;cursor:pointer">🔑 Conectar Binance</button>
+        <button onclick="openBncModal()" style="background:#F0B90B;color:#000;border:none;border-radius:8px;padding:9px 20px;font-size:.85rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px"><svg class="ico-sm ico"><use href="#i-key"/></svg> Conectar Binance</button>
       </div>
     </div>
   </div>
   <div class="section">
     <div class="section-header">
       <span class="section-title">Historial de alertas</span>
-      <button onclick="renderAlertas(true)" style="background:none;border:none;color:var(--muted);font-size:.78rem;cursor:pointer">↻ Actualizar</button>
+      <button onclick="renderAlertas(true)" class="btn btn-ghost" style="font-size:.75rem"><svg class="ico-xs ico"><use href="#i-refresh"/></svg> Actualizar</button>
     </div>
     <div id="alertas-content">
       <div style="color:var(--muted);font-size:.82rem;text-align:center;padding:16px 0">Cargando...</div>
@@ -616,7 +661,7 @@ a{color:inherit;text-decoration:none}
 <!-- Modal config Binance -->
 <div id="bnc-modal-overlay" class="bnc-modal-overlay" style="display:none" onclick="if(event.target===this)closeBncModal()">
   <div class="bnc-modal">
-    <h3>🔑 Configurar Binance</h3>
+    <h3 style="display:flex;align-items:center;gap:8px"><svg class="ico-sm ico" style="color:#F0B90B"><use href="#i-key"/></svg> Configurar Binance</h3>
     <p>Las keys se guardan solo en tu navegador. Nunca se envían a ningún servidor.<br><b>Importante:</b> en Binance, la key debe tener "Sin restricción de IP" para funcionar desde el browser.</p>
     <label>API Key</label>
     <input id="bnc-key-input" type="text" placeholder="Tu API Key de Binance" autocomplete="off">
@@ -632,39 +677,37 @@ a{color:inherit;text-decoration:none}
 
 <!-- ====== NAV ====== -->
 <nav class="nav-bar">
-  <div class="nav-brand" style="display:none">📊 <span>Mi Portafolio</span></div>
+  <div class="nav-brand" style="display:none"><svg class="ico" style="color:var(--blue)"><use href="#i-logo"/></svg> <span>Mi Portafolio</span></div>
   <button class="nav-item active" id="nav-home" onclick="navigate('home')">
-    <span class="nav-icon">🏠</span><span>Inicio</span>
+    <svg class="ico"><use href="#i-home"/></svg><span>Inicio</span>
   </button>
   <button class="nav-item" id="nav-portfolio" onclick="navigate('portfolio')">
-    <span class="nav-icon">📈</span><span>Portfolio</span>
+    <svg class="ico"><use href="#i-chart"/></svg><span>Portfolio</span>
   </button>
   <button class="nav-item" id="nav-noticias" onclick="navigate('noticias')">
-    <span class="nav-icon">📰</span><span>Noticias</span>
+    <svg class="ico"><use href="#i-news"/></svg><span>Noticias</span>
   </button>
   <button class="nav-item" id="nav-indices" onclick="navigate('indices')">
-    <span class="nav-icon">🌐</span><span>Índices</span>
+    <svg class="ico"><use href="#i-globe"/></svg><span>Índices</span>
   </button>
   <button class="nav-item" id="nav-ideas" onclick="navigate('ideas')">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-    <span>Ideas</span>
+    <svg class="ico"><use href="#i-target"/></svg><span>Ideas</span>
   </button>
   <button class="nav-item" id="nav-crypto" onclick="navigate('crypto')">
-    <img src="https://www.google.com/s2/favicons?domain=binance.com&sz=32" style="width:20px;height:20px;border-radius:4px;filter:grayscale(1)" id="nav-crypto-icon">
-    <span>Crypto</span>
+    <svg class="ico" id="nav-crypto-icon"><use href="#i-coin"/></svg><span>Crypto</span>
   </button>
 </nav>
 
 <!-- ====== CHAT FAB ====== -->
-<button id="chat-fab" onclick="toggleChat()" title="Warren — Asistente IA">💬</button>
+<button id="chat-fab" onclick="toggleChat()" title="Warren — Asistente IA"><svg class="ico" style="width:22px;height:22px;color:#fff"><use href="#i-chat"/></svg></button>
 
 <!-- ====== CHAT PANEL ====== -->
 <div id="chat-panel">
   <div class="chat-header">
     <div class="chat-header-title">
-      🤖 <span>Warren <span style="font-size:.7rem;color:var(--muted);font-weight:400">· Tu asesor de inversiones</span></span>
+      <svg class="ico-sm ico" style="color:var(--purple)"><use href="#i-spark"/></svg> <span>Warren <span style="font-size:.7rem;color:var(--muted);font-weight:400">· Tu asesor de inversiones</span></span>
     </div>
-    <button class="chat-close" onclick="toggleChat()">✕</button>
+    <button class="chat-close" onclick="toggleChat()"><svg class="ico-sm ico"><use href="#i-close"/></svg></button>
   </div>
 
   <!-- Setup: pedir API key -->
@@ -689,7 +732,7 @@ a{color:inherit;text-decoration:none}
     </div>
     <div class="chat-input-row" style="margin-top:8px">
       <input id="chat-input" type="text" placeholder="Pregunta sobre tu portafolio…" onkeydown="if(event.key==='Enter')sendChat()">
-      <button id="chat-send" onclick="sendChat()">➤</button>
+      <button id="chat-send" onclick="sendChat()"><svg class="ico-sm ico" style="color:#fff"><use href="#i-send"/></svg></button>
     </div>
   </div>
 </div>
@@ -724,12 +767,12 @@ const INDICES_CONFIG = [
   {sym:'^DJI',     name:'Dow Jones',      region:'us'},
   {sym:'^IXIC',    name:'Nasdaq',         region:'us'},
   {sym:'^RUT',     name:'Russell 2000',   region:'us'},
-  // 🌍 Europa
+  // Europa
   {sym:'^STOXX50E', name:'Euro Stoxx 50',  region:'eu'},
   {sym:'^FTSE',    name:'FTSE 100',       region:'eu'},
   {sym:'^GDAXI',   name:'DAX',            region:'eu'},
   {sym:'^FCHI',    name:'CAC 40',        region:'eu'},
-  // 🌏 Asia & Oceanía
+  // Asia & Oceania
   {sym:'^N225',    name:'Nikkei 225',     region:'asia'},
   {sym:'^HSI',     name:'Hang Seng',      region:'asia'},
   {sym:'000001.SS',name:'Shanghai Comp.', region:'asia'},
@@ -802,9 +845,6 @@ function navigate(page, extra) {
   if(page==='noticias')  renderNoticias();
   if(page==='ideas')     buildIdeas();
   if(page==='crypto')    { renderCrypto(); renderAlertas(); }
-  // Color ícono nav crypto cuando activo
-  const cryptoIcon = document.getElementById('nav-crypto-icon');
-  if(cryptoIcon) cryptoIcon.style.filter = page==='crypto' ? 'none' : 'grayscale(1)';
 }
 function goBack(){ navigate(prevPage||'portfolio'); }
 function openStock(ticker){
@@ -930,7 +970,7 @@ async function renderCrypto() {
     el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:24px 0;color:var(--muted)">
       <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#F0B90B" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-.93-6.63-.82-8.94 0-2.58.92-5.01 2.86-7.44 6.32"/></svg>
       <span style="font-size:.88rem">Conecta tu cuenta de Binance</span>
-      <button onclick="openBncModal()" style="background:#F0B90B;color:#000;border:none;border-radius:8px;padding:9px 20px;font-size:.85rem;font-weight:700;cursor:pointer">🔑 Conectar Binance</button>
+      <button onclick="openBncModal()" style="background:#F0B90B;color:#000;border:none;border-radius:8px;padding:9px 20px;font-size:.85rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px"><svg class="ico-sm ico"><use href="#i-key"/></svg> Conectar Binance</button>
     </div>`;
     return;
   }
@@ -972,7 +1012,7 @@ async function renderCrypto() {
     el.innerHTML = rows || '<div style="color:var(--muted);font-size:.84rem;text-align:center;padding:16px 0">Sin posiciones</div>';
   } catch(e) {
     el.innerHTML = `<div style="text-align:center;padding:20px 0">
-      <div style="color:var(--red);font-size:.84rem;margin-bottom:10px">⚠️ ${e.message}</div>
+      <div style="color:var(--red);font-size:.84rem;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:6px"><svg class="ico-sm ico"><use href="#i-alert"/></svg> ${e.message}</div>
       ${e.message.includes('IP') || e.message.includes('fetch') ? '<div style="font-size:.75rem;color:var(--muted);margin-bottom:10px">Verifica que la API key no tenga restricción de IP en Binance</div>' : ''}
       <button onclick="openBncModal()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:7px 16px;font-size:.82rem;cursor:pointer">Revisar keys</button>
     </div>`;
@@ -993,8 +1033,8 @@ async function renderAlertas(force=false) {
       const fecha = a.fecha ? new Date(a.fecha).toLocaleString('es-CL', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
       const esPrecioObj = a.tipo === 'precio_objetivo';
       const badge = esPrecioObj
-        ? '<span style="background:#F0B90B22;color:#F0B90B;border-radius:4px;padding:2px 6px;font-size:.68rem;font-weight:600">🎯 Objetivo</span>'
-        : '<span style="background:#58a6ff22;color:#58a6ff;border-radius:4px;padding:2px 6px;font-size:.68rem;font-weight:600">⚡ Movimiento</span>';
+        ? '<span style="background:#F0B90B22;color:#F0B90B;border-radius:4px;padding:2px 7px;font-size:.66rem;font-weight:700;display:inline-flex;align-items:center;gap:4px"><svg class="ico" style="width:11px;height:11px"><use href="#i-target"/></svg>Objetivo</span>'
+        : '<span style="background:var(--blue-bg);color:var(--blue);border-radius:4px;padding:2px 7px;font-size:.66rem;font-weight:700;display:inline-flex;align-items:center;gap:4px"><svg class="ico" style="width:11px;height:11px"><use href="#i-zap"/></svg>Movimiento</span>';
       const detalle = esPrecioObj
         ? (a.retorno !== null && a.retorno !== undefined ? `${a.retorno >= 0 ? '+' : ''}${parseFloat(a.retorno).toFixed(1)}% · ` : '') + `Objetivo: $${parseFloat(a.objetivo).toFixed(2)}`
         : (a.varDia !== null && a.varDia !== undefined ? `${parseFloat(a.varDia)*100 >= 0 ? '+' : ''}${(parseFloat(a.varDia)*100).toFixed(2)}% hoy` : '');
@@ -1267,7 +1307,7 @@ async function renderStock(ticker){
       document.getElementById('s-price').textContent=usd(p.precioActual);
       const vd=toPct(p.varDia);
       const vdEl=document.getElementById('s-varday');
-      vdEl.textContent=(vd>=0?'╯ +':'▼ ')+fmt(vd,2)+'% hoy';
+      vdEl.innerHTML=`<svg class="ico" style="width:14px;height:14px;vertical-align:-2px"><use href="#i-${vd>=0?'up':'down'}"/></svg> ${vd>=0?'+':''}${fmt(vd,2)}% hoy`;
       vdEl.className='stock-varday '+(vd>=0?'positive':'negative');
       const d1El=document.getElementById('v-1d');
       d1El.textContent=(vd>=0?'+':'')+fmt(vd,2)+'%';
@@ -1561,9 +1601,9 @@ async function renderNoticias(){
 
   // 1. Macro news first (sequential, with delay)
   const macroQueries=[
-    ['S&P 500 markets economy','🌍 Macro'],
-    ['Federal Reserve interest rates inflation','🌍 Macro'],
-    ['Wall Street earnings GDP','🌍 Macro'],
+    ['S&P 500 markets economy','Macro'],
+    ['Federal Reserve interest rates inflation','Macro'],
+    ['Wall Street earnings GDP','Macro'],
   ];
   for(const [q,tag] of macroQueries){
     const items=await fetchNewsFor(q,tag);
@@ -1702,7 +1742,6 @@ function toggleChat(){
   chatOpen=!chatOpen;
   document.getElementById('chat-panel').classList.toggle('open',chatOpen);
   document.getElementById('chat-fab').classList.toggle('open',chatOpen);
-  document.getElementById('chat-fab').textContent=chatOpen?'✕':'💬';
   if(chatOpen && !chatReady) initChat();
 }
 
@@ -1730,7 +1769,7 @@ function showChatReady(){
   document.getElementById('chat-messages').style.display='flex';
   document.getElementById('chat-input-area').style.display='block';
   if(chatHistory.length===0){
-    appendMsg('ai','¡Hola! Soy Warren, tu asesor de inversiones 📈 Tengo acceso a los datos de tu portafolio y puedo ayudarte con análisis, posiciones, sectores, dividendos, earnings y más. ¿En qué te ayudo?');
+    appendMsg('ai','Hola, soy Warren, tu asesor de inversiones. Tengo acceso a los datos de tu portafolio y puedo ayudarte con análisis, posiciones, sectores, dividendos, earnings y más. ¿En qué te ayudo?');
   }
   document.getElementById('chat-input').focus();
 }
@@ -1836,7 +1875,7 @@ Usa los datos del portafolio para personalizar tus respuestas. Si te preguntan s
     thinkEl.classList.remove('thinking');
   } catch(e){
     if(e.message==='QUOTA_EXHAUSTED'){
-      thinkEl.textContent='⚠️ Tu cuota diaria de Gemini se agotó.\n\nPuedes usar Groq gratuitamente y sin límite diario:\n1. Ve a console.groq.com y crea una cuenta\n2. Genera una API key (empieza con gsk_)\n3. Haz doble tap aquí arriba y pega tu key de Groq';
+      thinkEl.textContent='Tu cuota diaria de Gemini se agotó.\n\nPuedes usar Groq gratuitamente y sin límite diario:\n1. Ve a console.groq.com y crea una cuenta\n2. Genera una API key (empieza con gsk_)\n3. Haz doble tap aquí arriba y pega tu key de Groq';
     } else {
       thinkEl.textContent='Error: '+e.message+'\n\n¿Tu API key es correcta? Haz doble tap en el encabezado del chat para cambiarla.';
     }
@@ -1855,7 +1894,7 @@ function quickAsk(txt){
 // Cambiar API key: doble tap en el header del chat
 document.querySelector('.chat-header').addEventListener('dblclick',()=>{
   const k=prompt('Nueva API key (Groq: gsk_… o Gemini: AIza…). Deja vacío para cancelar:');
-  if(k&&(k.startsWith('AIza')||k.startsWith('gsk_'))){ geminiKey=k; localStorage.setItem('gemini_api_key',k); alert('API key actualizada ✓'); }
+  if(k&&(k.startsWith('AIza')||k.startsWith('gsk_'))){ geminiKey=k; localStorage.setItem('gemini_api_key',k); alert('API key actualizada'); }
 });
 
 // ── ANÁLISIS / HEATMAP ────────────────────────────────────────
@@ -2339,7 +2378,7 @@ function openIdea(sym) {
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">${badges}</div>
         </div>
-        <button onclick="closeIdeasSheet()" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:0 0 0 14px;flex-shrink:0">✕</button>
+        <button onclick="closeIdeasSheet()" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:0 0 0 14px;flex-shrink:0"><svg class="ico-sm ico"><use href="#i-close"/></svg></button>
       </div>
     </div>
     <div class="ideas-sheet-body">
@@ -2480,13 +2519,12 @@ async function renderSemaforo() {
     const maxW = 1*2 + 2*2 + 1*2 + 1*2; // 10
     const ratio = weighted / maxW;
     let globalColor, globalLabel;
-    if (ratio >= 0.65)      { globalColor='var(--green)';  globalLabel='🟢 Favorable'; }
-    else if (ratio >= 0.35) { globalColor='var(--yellow)'; globalLabel='🟡 Precaución'; }
-    else                    { globalColor='var(--red)';    globalLabel='🔴 Adverso'; }
+    if (ratio >= 0.65)      { globalColor='var(--green)';  globalLabel='Favorable'; }
+    else if (ratio >= 0.35) { globalColor='var(--yellow)'; globalLabel='Precaución'; }
+    else                    { globalColor='var(--red)';    globalLabel='Adverso'; }
 
-    badge.textContent    = globalLabel;
-    badge.style.color    = globalColor;
-    badge.style.background = 'var(--surface2)';
+    badge.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${globalColor};display:inline-block"></span>${globalLabel}`;
+    badge.style.color = globalColor;
 
     el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(${indicators.length},1fr);gap:8px">
       ${indicators.map(i=>`
@@ -2577,7 +2615,7 @@ async function generarResumenIA() {
 
   if (!geminiKey || (!geminiKey.startsWith('gsk_') && !geminiKey.startsWith('AIza'))) {
     el.style.display='block';
-    el.innerHTML='<div style="color:var(--muted);font-size:.82rem;padding:8px">Primero configura tu API key de Groq en el chat (ícono 💬).</div>';
+    el.innerHTML='<div style="color:var(--muted);font-size:.82rem;padding:8px">Primero configura tu API key de Groq en el chat de Warren (botón flotante).</div>';
     return;
   }
   btn.disabled = true;
