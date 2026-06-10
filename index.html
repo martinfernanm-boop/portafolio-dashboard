@@ -53,22 +53,26 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .market-dot.open{background:var(--green);box-shadow:0 0 8px var(--green)}
 .market-dot.closed{background:var(--red)}
 .market-countdown{margin-left:auto;color:var(--faint);font-size:.72rem;font-variant-numeric:tabular-nums}
-.hero{padding:16px 16px 12px}
+.hero{padding:10px 16px 8px}
 #page-home .hero{text-align:center}
 #page-home .hero-meta{justify-content:center}
-.hero-label{font-size:.7rem;color:var(--muted);font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.hero-label{font-size:.68rem;color:var(--muted);font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;display:flex;align-items:center;gap:6px}
 #page-home .hero-label{justify-content:center}
-.hero-total{font-size:2.4rem;font-weight:700;line-height:1.05;letter-spacing:-.02em}
-.hero-meta{display:flex;gap:22px;flex-wrap:wrap;margin-top:10px}
-.meta-item{display:flex;flex-direction:column;gap:2px}
+.hero-total{font-size:2.2rem;font-weight:700;line-height:1.05;letter-spacing:-.02em}
+.hero-meta{display:flex;gap:20px;flex-wrap:wrap;margin-top:7px}
+.meta-item{display:flex;flex-direction:column;gap:1px}
 .meta-label{font-size:.62rem;color:var(--faint);text-transform:uppercase;letter-spacing:.07em;font-weight:600}
-.meta-value{font-size:.95rem;font-weight:650}
+.meta-value{font-size:.92rem;font-weight:650}
 
 /* SECTION */
-.section{padding:5px 16px 7px}
-.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;padding-top:3px;min-height:26px}
+.section{padding:3px 16px 4px}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;padding-top:2px;min-height:26px}
 .section-title{font-size:.7rem;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.09em;display:flex;align-items:center;gap:7px}
-.section-sub{font-size:.72rem;color:var(--faint);margin:-3px 0 7px;line-height:1.45}
+.section-sub{font-size:.72rem;color:var(--faint);margin:-2px 0 5px;line-height:1.4}
+
+/* FILTER SELECT */
+.fsel{background:var(--surface2);border:1px solid var(--border);border-radius:99px;color:var(--muted);font-size:.7rem;font-weight:600;padding:3px 10px;cursor:pointer;outline:none;font-family:inherit}
+.fsel:focus{border-color:var(--blue)}
 
 /* TOGGLE PILL */
 .toggle-pill{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:99px;overflow:hidden;padding:2px}
@@ -94,7 +98,7 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .chart-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:12px;margin-bottom:8px;box-shadow:var(--shadow)}
 
 /* POSITION ROWS — QUINENCO FIX: ticker columna más ancha + overflow */
-.pos-row{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.pos-row{display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
 .pos-row:last-child{border-bottom:none}
 .pos-row:hover{background:var(--surface2)}
 .pos-ticker{font-weight:700;font-size:.9rem;width:76px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowraw;line-height:1.3}
@@ -309,16 +313,18 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
   #idx-news-sheet{left:220px;width:calc(100vw - 220px);right:0;bottom:0}
   #chat-fab{right:24px;bottom:24px}
 
-  /* 2-col home */
-  #page-home.active{display:grid;grid-template-columns:1fr 1fr;align-items:start}
+  /* 2-col home: columnas explícitas para no dejar huecos */
+  #page-home.active{display:grid;grid-template-columns:1fr 1fr;column-gap:4px;align-items:start;grid-auto-rows:min-content}
   #page-home .hero,#page-home .market-banner,#page-home .status-bar{grid-column:1/-1}
+  #sec-semaforo,#sec-evo{grid-column:1}
+  #sec-warren,#sec-donut{grid-column:2}
   #sec-platforms{grid-column:1/-1}
 
-  /* 2-col portfolio */
-  #page-portfolio.active{display:grid;grid-template-columns:1fr 1fr;align-items:start}
+  /* 2-col portfolio: posiciones a la izquierda, journal+heatmap a la derecha */
+  #page-portfolio.active{display:grid;grid-template-columns:1fr 1fr;column-gap:4px;align-items:start;grid-auto-rows:min-content}
   #page-portfolio .hero{grid-column:1/-1}
-  /* Alinear heatmap con primera fila de posiciones */
-  #sec-heatmap-pf{padding-top:32px}
+  #sec-posiciones{grid-column:1;grid-row:2/span 4}
+  #sec-journal,#sec-heatmap-pf{grid-column:2}
 
   /* páginas con contenido simple: max-width centrado */
   #page-noticias,#page-indices,#page-stock,#page-ideas{max-width:900px;margin:0 auto}
@@ -480,6 +486,22 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
       <button onclick="openJournalModal()" class="btn btn-primary" style="font-size:.74rem;padding:5px 12px">Registrar</button>
     </div>
     <div class="section-sub">Cada operación con su motivo · revisa qué razonamientos funcionan</div>
+    <div id="journal-filters" style="display:none;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+      <select id="jf-tipo" class="fsel" onchange="renderJournalList()">
+        <option value="all">Todo</option>
+        <option value="Compra">Compras</option>
+        <option value="Venta">Ventas</option>
+      </select>
+      <select id="jf-ticker" class="fsel" onchange="renderJournalList()">
+        <option value="all">Todos los tickers</option>
+      </select>
+      <select id="jf-periodo" class="fsel" onchange="renderJournalList()">
+        <option value="all">Siempre</option>
+        <option value="7">Últimos 7 días</option>
+        <option value="30">Últimos 30 días</option>
+        <option value="90">Últimos 90 días</option>
+      </select>
+    </div>
     <div class="card" id="journal-list">
       <div class="loading"><div class="spinner"></div>Cargando…</div>
     </div>
@@ -2536,34 +2558,79 @@ function toggleBalance() {
 }
 
 // ── JOURNAL DE OPERACIONES ────────────────────────────────────
+let _journalEntries = [];
+
 async function renderJournal(force = false) {
   const el = document.getElementById('journal-list');
   if (!el) return;
   try {
     const { journal } = await get('journal', force);
-    const entries = journal || [];
-    if (!entries.length) {
-      el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:20px 16px">Sin operaciones registradas.<br><span style="font-size:.74rem;color:var(--faint)">Registra cada compra/venta con su motivo — en unos meses sabrás qué razonamientos te funcionan.</span></div>';
-      return;
+    _journalEntries = journal || [];
+
+    // Poblar el filtro de tickers (conservar selección actual si sigue existiendo)
+    const tickerSel = document.getElementById('jf-ticker');
+    if (tickerSel) {
+      const prev = tickerSel.value;
+      const tickers = [...new Set(_journalEntries.map(e => e.ticker))].sort();
+      tickerSel.innerHTML = '<option value="all">Todos los tickers</option>' +
+        tickers.map(t => `<option value="${t}">${t}</option>`).join('');
+      if (tickers.includes(prev)) tickerSel.value = prev;
     }
-    el.innerHTML = entries.slice(0, 20).map(e => {
-      const esCompra = e.tipo === 'Compra';
-      const color = esCompra ? 'var(--green)' : 'var(--red)';
-      const bg    = esCompra ? 'var(--green-bg)' : 'var(--red-bg)';
-      const fecha = e.fecha ? new Date(e.fecha).toLocaleDateString('es-CL', {day:'2-digit', month:'short'}) : '—';
-      return `<div style="padding:11px 16px;border-bottom:1px solid var(--border)">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <span style="background:${bg};color:${color};border-radius:4px;padding:2px 8px;font-size:.66rem;font-weight:700">${e.tipo}</span>
-          <span style="font-weight:700;font-size:.88rem">${e.ticker}</span>
-          <span class="num" style="font-size:.78rem;color:var(--muted)">${e.cantidad ? fmt(e.cantidad, 4) + ' × ' : ''}${usd(e.precio)}</span>
-          <span style="margin-left:auto;font-size:.68rem;color:var(--faint)">${fecha}</span>
-        </div>
-        ${e.motivo ? `<div style="font-size:.76rem;color:var(--muted);line-height:1.5">${e.motivo}</div>` : ''}
-      </div>`;
-    }).join('');
+    document.getElementById('journal-filters').style.display = _journalEntries.length ? 'flex' : 'none';
+    renderJournalList();
   } catch(err) {
     el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:16px">No se pudo cargar el journal.</div>';
   }
+}
+
+function renderJournalList() {
+  const el = document.getElementById('journal-list');
+  if (!el) return;
+
+  if (!_journalEntries.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:16px">Sin operaciones registradas.<br><span style="font-size:.74rem;color:var(--faint)">Registra cada compra/venta con su motivo — en unos meses sabrás qué razonamientos te funcionan.</span></div>';
+    return;
+  }
+
+  const fTipo    = document.getElementById('jf-tipo')?.value    || 'all';
+  const fTicker  = document.getElementById('jf-ticker')?.value  || 'all';
+  const fPeriodo = document.getElementById('jf-periodo')?.value || 'all';
+  const desde    = fPeriodo === 'all' ? 0 : Date.now() - parseInt(fPeriodo) * 24 * 3600 * 1000;
+
+  const filtered = _journalEntries.filter(e =>
+    (fTipo === 'all'   || e.tipo === fTipo) &&
+    (fTicker === 'all' || e.ticker === fTicker) &&
+    (!desde || (e.fecha && new Date(e.fecha).getTime() >= desde))
+  );
+
+  if (!filtered.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:16px">Sin operaciones con estos filtros.</div>';
+    return;
+  }
+
+  // Resumen del filtro: total comprado/vendido
+  const totCompra = filtered.filter(e => e.tipo === 'Compra').reduce((s, e) => s + (e.monto || 0), 0);
+  const totVenta  = filtered.filter(e => e.tipo === 'Venta').reduce((s, e) => s + (e.monto || 0), 0);
+
+  el.innerHTML = `<div style="display:flex;gap:16px;padding:8px 14px;border-bottom:1px solid var(--border);font-size:.7rem;color:var(--muted)">
+    <span>${filtered.length} ${filtered.length === 1 ? 'operación' : 'operaciones'}</span>
+    ${totCompra ? `<span class="num" style="color:var(--green)">Comprado ${usd(totCompra)}</span>` : ''}
+    ${totVenta ? `<span class="num" style="color:var(--red)">Vendido ${usd(totVenta)}</span>` : ''}
+  </div>` + filtered.slice(0, 30).map(e => {
+    const esCompra = e.tipo === 'Compra';
+    const color = esCompra ? 'var(--green)' : 'var(--red)';
+    const bg    = esCompra ? 'var(--green-bg)' : 'var(--red-bg)';
+    const fecha = e.fecha ? new Date(e.fecha).toLocaleDateString('es-CL', {day:'2-digit', month:'short'}) : '—';
+    return `<div style="padding:9px 14px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+        <span style="background:${bg};color:${color};border-radius:4px;padding:2px 8px;font-size:.66rem;font-weight:700">${e.tipo}</span>
+        <span style="font-weight:700;font-size:.86rem">${e.ticker}</span>
+        <span class="num" style="font-size:.76rem;color:var(--muted)">${e.cantidad ? fmt(e.cantidad, 4) + ' × ' : ''}${usd(e.precio)}</span>
+        <span style="margin-left:auto;font-size:.68rem;color:var(--faint)">${fecha}</span>
+      </div>
+      ${e.motivo ? `<div style="font-size:.75rem;color:var(--muted);line-height:1.45">${e.motivo}</div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 function openJournalModal() {
