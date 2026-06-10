@@ -2229,12 +2229,19 @@ const IDEAS_UNIVERSE = [
 ];
 
 const IDEAS_PLAT_COLORS = {etoro:'#00C176', binance:'#F0B90B', racional:'#6366f1'};
-const IDEAS_PORT_TICKERS = ['TSLA','NVDA','ASML','PLTR','VOO','TTWO','BLK','UNH','MSFT','INTU','CRWV','SCHD','VPU','QUINENCO'];
+// Lista por defecto; se refresca con las posiciones reales en buildIdeas()
+let IDEAS_PORT_TICKERS = ['TSLA','NVDA','ASML','PLTR','VOO','TTWO','BLK','UNH','MSFT','INTU','CRWV','SCHD','VPU','QUINENCO'];
 
 let _ideasData = null;
 
 async function buildIdeas() {
   if (_ideasData) { _renderIdeas(); return; }
+
+  // 0. Tickers reales del portafolio (para excluirlos de las sugerencias)
+  try {
+    const {posiciones} = await get('portafolio');
+    if (posiciones?.length) IDEAS_PORT_TICKERS = posiciones.map(p => p.ticker);
+  } catch {}
 
   // 1. Retornos diarios del portafolio (desde historial)
   let portReturns = [];
@@ -2560,6 +2567,19 @@ function toggleBalance() {
 // ── JOURNAL DE OPERACIONES ────────────────────────────────────
 let _journalEntries = [];
 
+// Invalida todo lo derivado del portafolio: al cambiar una posición se
+// recalculan correlación, ideas, noticias, earnings y beta en la próxima vista
+function invalidatePortfolioCaches() {
+  cache['portafolio'] = null;
+  cache['journal']    = null;
+  cache['historial']  = null;
+  _heatmapHTML  = null;   // correlación 90d
+  _ideasData    = null;   // oportunidades + diversificación
+  allNewsCache  = [];     // noticias por ticker
+  activeNewsFilter = 'all';
+  try { sessionStorage.removeItem('earnings_gas_v1'); } catch {}
+}
+
 async function renderJournal(force = false) {
   const el = document.getElementById('journal-list');
   if (!el) return;
@@ -2658,9 +2678,8 @@ async function saveJournalEntry() {
     if (res.error) throw new Error(res.error);
     ['jr-ticker','jr-precio','jr-cantidad','jr-motivo'].forEach(id => document.getElementById(id).value = '');
     closeJournalModal();
-    // Refrescar journal y posiciones (el Sheet ya quedó actualizado)
-    cache['journal'] = null;
-    cache['portafolio'] = null;
+    // El portafolio cambió: invalidar todo lo derivado y re-renderizar
+    invalidatePortfolioCaches();
     renderJournal(true);
     renderPortfolio();
     if (res.nota) alert(res.nota);
