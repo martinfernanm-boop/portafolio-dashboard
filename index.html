@@ -53,22 +53,22 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .market-dot.open{background:var(--green);box-shadow:0 0 8px var(--green)}
 .market-dot.closed{background:var(--red)}
 .market-countdown{margin-left:auto;color:var(--faint);font-size:.72rem;font-variant-numeric:tabular-nums}
-.hero{padding:24px 16px 16px}
+.hero{padding:16px 16px 12px}
 #page-home .hero{text-align:center}
 #page-home .hero-meta{justify-content:center}
-.hero-label{font-size:.7rem;color:var(--muted);font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.hero-label{font-size:.7rem;color:var(--muted);font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:6px}
 #page-home .hero-label{justify-content:center}
-.hero-total{font-size:2.6rem;font-weight:700;line-height:1.05;letter-spacing:-.02em}
-.hero-meta{display:flex;gap:24px;flex-wrap:wrap;margin-top:14px}
+.hero-total{font-size:2.4rem;font-weight:700;line-height:1.05;letter-spacing:-.02em}
+.hero-meta{display:flex;gap:22px;flex-wrap:wrap;margin-top:10px}
 .meta-item{display:flex;flex-direction:column;gap:2px}
 .meta-label{font-size:.62rem;color:var(--faint);text-transform:uppercase;letter-spacing:.07em;font-weight:600}
 .meta-value{font-size:.95rem;font-weight:650}
 
 /* SECTION */
-.section{padding:8px 16px 12px}
-.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-top:4px;min-height:26px}
+.section{padding:5px 16px 7px}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;padding-top:3px;min-height:26px}
 .section-title{font-size:.7rem;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.09em;display:flex;align-items:center;gap:7px}
-.section-sub{font-size:.72rem;color:var(--faint);margin:-4px 0 10px;line-height:1.45}
+.section-sub{font-size:.72rem;color:var(--faint);margin:-3px 0 7px;line-height:1.45}
 
 /* TOGGLE PILL */
 .toggle-pill{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:99px;overflow:hidden;padding:2px}
@@ -88,10 +88,10 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .badge{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--surface2);letter-spacing:.02em}
 
 /* CARDS */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;margin-bottom:10px;box-shadow:var(--shadow)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;margin-bottom:8px;box-shadow:var(--shadow)}
 
 /* CHART BOX */
-.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:12px;margin-bottom:8px;box-shadow:var(--shadow)}
 
 /* POSITION ROWS — QUINENCO FIX: ticker columna más ancha + overflow */
 .pos-row{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
@@ -198,7 +198,7 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 /* UTILS */
 .positive{color:var(--green)}
 .negative{color:var(--red)}
-.loading{display:flex;align-items:center;justify-content:center;padding:48px 20px;color:var(--muted);font-size:.85rem;gap:10px}
+.loading{display:flex;align-items:center;justify-content:center;padding:26px 20px;color:var(--muted);font-size:.85rem;gap:10px}
 .spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
 .status-bar{text-align:center;padding:8px;font-size:.72rem;color:var(--muted)}
@@ -387,20 +387,15 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
       <div class="loading"><div class="spinner"></div>Cargando…</div>
     </div>
   </div>
-  <div class="section">
+  <div class="section" id="sec-warren">
     <div class="section-header">
-      <span class="section-title"><svg class="ico-xs ico" style="color:var(--purple)"><use href="#i-spark"/></svg> Resumen semanal · Warren</span>
-      <button onclick="generarResumenIA()" id="btn-resumen-ia" class="btn btn-accent">Generar</button>
+      <span class="section-title"><svg class="ico-xs ico" style="color:var(--purple)"><use href="#i-spark"/></svg> Warren · Análisis IA</span>
     </div>
-    <div class="section-sub">Qué funcionó esta semana · qué no · qué hacer</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button onclick="generarResumenIA()" id="btn-resumen-ia" class="btn btn-accent" style="flex:1;justify-content:center">Resumen semanal</button>
+      <button onclick="analizarCaja()" id="btn-caja" class="btn btn-primary" style="flex:1;justify-content:center">Analizar caja</button>
+    </div>
     <div id="ideas-resumen-ia" class="card" style="display:none"></div>
-  </div>
-  <div class="section" id="sec-caja">
-    <div class="section-header">
-      <span class="section-title"><svg class="ico-xs ico" style="color:var(--green)"><use href="#i-coin"/></svg> Caja inteligente · Warren</span>
-      <button onclick="analizarCaja()" id="btn-caja" class="btn btn-primary">Analizar</button>
-    </div>
-    <div class="section-sub">¿Usar la caja ahora o esperar? Según semáforo y posiciones en zona de entrada</div>
     <div id="caja-analisis" class="card" style="display:none"></div>
   </div>
   <div class="section" id="sec-evo">
@@ -703,6 +698,12 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
         <input id="jr-cantidad" type="number" step="any" placeholder="0.5" autocomplete="off">
       </div>
     </div>
+    <label>Plataforma</label>
+    <select id="jr-plataforma" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:.82rem;margin-bottom:10px">
+      <option value="Racional">Racional</option>
+      <option value="eToro">eToro</option>
+      <option value="Binance">Binance</option>
+    </select>
     <label>Motivo — ¿por qué haces esta operación?</label>
     <textarea id="jr-motivo" rows="3" placeholder="Ej: rompió resistencia con volumen, semáforo favorable, RSI saliendo de sobreventa…" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:.82rem;margin-bottom:10px;font-family:inherit;resize:vertical"></textarea>
     <div class="bnc-modal-btns">
@@ -2581,16 +2582,21 @@ async function saveJournalEntry() {
   const motivo   = document.getElementById('jr-motivo').value.trim();
   if (!ticker || !precio) { alert('Ticker y precio son obligatorios'); return; }
 
+  const plataforma = document.getElementById('jr-plataforma').value;
   const btn = document.getElementById('jr-save-btn');
   btn.disabled = true; btn.textContent = 'Guardando…';
   try {
-    const url = `${API}?action=journal_add&ticker=${encodeURIComponent(ticker)}&tipo=${tipo}&precio=${encodeURIComponent(precio)}&cantidad=${encodeURIComponent(cantidad||0)}&motivo=${encodeURIComponent(motivo)}&_t=${Date.now()}`;
+    const url = `${API}?action=journal_add&ticker=${encodeURIComponent(ticker)}&tipo=${tipo}&precio=${encodeURIComponent(precio)}&cantidad=${encodeURIComponent(cantidad||0)}&plataforma=${encodeURIComponent(plataforma)}&motivo=${encodeURIComponent(motivo)}&_t=${Date.now()}`;
     const res = await fetch(url).then(r => r.json());
     if (res.error) throw new Error(res.error);
     ['jr-ticker','jr-precio','jr-cantidad','jr-motivo'].forEach(id => document.getElementById(id).value = '');
     closeJournalModal();
+    // Refrescar journal y posiciones (el Sheet ya quedó actualizado)
     cache['journal'] = null;
+    cache['portafolio'] = null;
     renderJournal(true);
+    renderPortfolio();
+    if (res.nota) alert(res.nota);
   } catch(e) {
     alert('Error al guardar: ' + e.message);
   } finally {
@@ -2678,9 +2684,6 @@ async function renderSemaforo() {
           <div style="font-size:1.1rem;font-weight:700;color:${i.color}">${i.value}</div>
           <div style="font-size:.65rem;color:${i.color};margin-top:3px">${i.sub}</div>
         </div>`).join('')}
-    </div>
-    <div style="margin-top:10px;padding:8px 10px;background:var(--surface2);border-radius:8px;font-size:.75rem;color:var(--muted)">
-      Contexto: operar a favor del semáforo reduce el riesgo de mercado no asociado a tus activos.
     </div>`;
   } catch(e) {
     el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:12px">No se pudo cargar.</div>';
@@ -2824,7 +2827,7 @@ Sé directo. No des disclaimers genéricos.`;
   } catch(e) {
     el.innerHTML = `<div style="color:var(--red);font-size:.82rem;padding:12px 16px">Error: ${e.message}</div>`;
   } finally {
-    btn.disabled = false; btn.textContent = 'Analizar';
+    btn.disabled = false; btn.textContent = 'Analizar caja';
   }
 }
 
@@ -2911,7 +2914,7 @@ Máximo 250 palabras. Directo y específico a estas posiciones.`;
     el.innerHTML = `<div style="color:var(--red);font-size:.82rem">Error: ${e.message}</div>`;
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Generar';
+    btn.textContent = 'Resumen semanal';
   }
 }
 
