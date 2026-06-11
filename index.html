@@ -100,6 +100,38 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .section-title{font-size:.7rem;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.09em;display:flex;align-items:center;gap:7px}
 .section-sub{font-size:.72rem;color:var(--faint);margin:-2px 0 5px;line-height:1.4}
 
+/* SKELETON LOADERS */
+@keyframes shimmer{0%{opacity:.45}50%{opacity:.9}100%{opacity:.45}}
+.skel-row{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border)}
+.skel-row:last-child{border-bottom:none}
+.skel{background:var(--surface3);border-radius:6px;animation:shimmer 1.4s ease-in-out infinite}
+.skel-circle{border-radius:50%;flex-shrink:0}
+
+/* PAGE TRANSITIONS */
+@keyframes pageIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+.page.active{animation:pageIn .2s ease-out}
+@keyframes sheetUp{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+#page-stock.active{animation:sheetUp .24s cubic-bezier(.3,.9,.3,1)}
+
+/* POS ROW v2: logo + spark */
+.pos-logo{width:32px;height:32px;border-radius:50%;background:var(--surface3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;color:var(--muted);overflow:hidden;border:1px solid var(--border)}
+.pos-logo img{width:20px;height:20px;object-fit:contain}
+.pos-tkr{font-weight:700;font-size:.86rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spark{width:52px;height:22px;flex-shrink:0;margin:0 4px}
+@media(max-width:359px){.spark{display:none}}
+
+/* PERF PANEL */
+.perf-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+@media(max-width:519px){.perf-cell{padding:8px 2px}.perf-pct{font-size:.8rem}.perf-usd{font-size:.6rem}}
+.perf-cell{text-align:center;padding:9px 4px;border-radius:14px;background:var(--glass);border:1px solid var(--border);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.perf-label{font-size:.6rem;color:var(--faint);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.perf-pct{font-size:.92rem;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums}
+.perf-usd{font-size:.64rem;color:var(--muted);margin-top:1px;font-variant-numeric:tabular-nums}
+
+/* PULL TO REFRESH */
+#ptr{position:fixed;top:10px;left:50%;transform:translateX(-50%) translateY(-60px);z-index:400;background:var(--dock);border:1px solid var(--dock-border);border-radius:99px;padding:7px 16px;font-size:.74rem;font-weight:600;color:var(--muted);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);transition:transform .2s;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow)}
+#ptr.show{transform:translateX(-50%) translateY(0)}
+
 /* FILTER SELECT */
 .fsel{background:var(--glass);border:1px solid var(--border);border-radius:99px;color:var(--muted);font-size:.7rem;font-weight:600;padding:3px 10px;cursor:pointer;outline:none;font-family:inherit;backdrop-filter:blur(10px)}
 .fsel:focus{border-color:var(--blue)}
@@ -357,8 +389,8 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 
   /* 2-col portfolio: posiciones a la izquierda, journal+heatmap a la derecha */
   #page-portfolio.active{display:grid;grid-template-columns:1fr 1fr;column-gap:4px;align-items:start;grid-auto-rows:min-content}
-  #page-portfolio .hero{grid-column:1/-1}
-  #sec-posiciones{grid-column:1;grid-row:2/span 4}
+  #page-portfolio .hero,#sec-perf{grid-column:1/-1}
+  #sec-posiciones{grid-column:1;grid-row:3/span 4}
   #sec-journal,#sec-heatmap-pf{grid-column:2}
 
   /* páginas con contenido simple: max-width centrado */
@@ -394,6 +426,8 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
   <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
   <symbol id="i-sun-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2m0 14v2M5.2 5.2l1.4 1.4m10.8 10.8 1.4 1.4M3 12h2m14 0h2M5.2 18.8l1.4-1.4"/><path d="M15.5 8.5a5 5 0 1 0 0 7 4 4 0 0 1 0-7z"/></symbol>
 </svg>
+
+<div id="ptr" aria-hidden="true"><div class="spinner" style="width:13px;height:13px;border-width:2px"></div>Actualizando…</div>
 
 <!-- ====== HOME ====== -->
 <div id="page-home" class="page active">
@@ -453,7 +487,16 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
         <button class="tpill-btn" id="evo-ndx-btn" onclick="switchEvo('ndx')">Nasdaq</button>
       </div>
     </div>
-    <div class="chart-box"><canvas id="evo-chart" height="150"></canvas></div>
+    <div class="chart-box">
+      <canvas id="evo-chart" height="150"></canvas>
+      <div style="display:flex;justify-content:center;gap:4px;margin-top:8px">
+        <button class="tpill-btn" id="evr-7" onclick="switchEvoRange(7)">1S</button>
+        <button class="tpill-btn" id="evr-30" onclick="switchEvoRange(30)">1M</button>
+        <button class="tpill-btn active" id="evr-90" onclick="switchEvoRange(90)">3M</button>
+        <button class="tpill-btn" id="evr-365" onclick="switchEvoRange(365)">1A</button>
+        <button class="tpill-btn" id="evr-0" onclick="switchEvoRange(0)">Todo</button>
+      </div>
+    </div>
   </div>
   <div class="section" id="sec-donut">
     <div class="section-header">
@@ -506,6 +549,18 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
       <div class="meta-item"><span class="meta-label">G/P</span><span class="meta-value" id="p-gp">—</span></div>
       <div class="meta-item"><span class="meta-label">Retorno</span><span class="meta-value" id="p-ret">—</span></div>
       <div class="meta-item"><span class="meta-label">Beta 90d</span><span class="meta-value" id="p-beta">—</span></div>
+    </div>
+  </div>
+  <div class="section" id="sec-perf">
+    <div class="section-header">
+      <span class="section-title">Rendimiento</span>
+    </div>
+    <div class="perf-grid" id="perf-grid">
+      <div class="perf-cell"><div class="perf-label">Hoy</div><div class="perf-pct">—</div><div class="perf-usd"></div></div>
+      <div class="perf-cell"><div class="perf-label">Semana</div><div class="perf-pct">—</div><div class="perf-usd"></div></div>
+      <div class="perf-cell"><div class="perf-label">Mes</div><div class="perf-pct">—</div><div class="perf-usd"></div></div>
+      <div class="perf-cell"><div class="perf-label">YTD</div><div class="perf-pct">—</div><div class="perf-usd"></div></div>
+      <div class="perf-cell"><div class="perf-label">1 año</div><div class="perf-pct">—</div><div class="perf-usd"></div></div>
     </div>
   </div>
   <div class="section" id="sec-posiciones">
@@ -1234,7 +1289,7 @@ async function renderHome(){
   try {
     const {resumen,posiciones} = await get('portafolio');
     lastPosiciones=posiciones;
-    document.getElementById('h-total').textContent = usd(resumen.valor);
+    countUp(document.getElementById('h-total'), resumen.valor, usd);
     const gpEl=document.getElementById('h-gp');
     gpEl.textContent=(resumen.ganancia>=0?'+':'')+usd(resumen.ganancia);
     gpEl.className='meta-value '+cls(resumen.ganancia);
@@ -1287,41 +1342,64 @@ function buildDonut(pos){
   });
 }
 
-// evoMode: 'port' | 'sp' | 'ndx'
-let evoMode='port', evoSlice=null, evoBenchData={sp500:null,ixic:null};
+// evoMode: 'port' | 'sp' | 'ndx' · evoRangeN: días (0 = todo)
+let evoMode='port', evoRangeN=90, evoFull=null, evoSlice=null, evoBenchData={sp500:null,ixic:null}, _evoBenchFull={sp500:null,ixic:null};
+
+function applyEvoRange(){
+  if(!evoFull) return;
+  evoSlice = evoRangeN>0 ? evoFull.slice(-evoRangeN) : evoFull;
+  const len = evoSlice.length;
+  for(const key of ['sp500','ixic']){
+    const m=_evoBenchFull[key];
+    if(!m){ evoBenchData[key]=null; continue; }
+    const sl=m.slice(-len);
+    evoBenchData[key]=sl.map(v=>parseFloat(fmt(v-sl[0],2))); // rebasar a 0 al inicio del rango
+  }
+}
 
 async function buildEvo(){
   try {
     const {historial}=await get('historial');
     if(!historial||!historial.length) return;
-    evoSlice=historial.slice(-60);
+    evoFull=historial;
 
-    // Pre-fetch benchmarks en background para que estén listos al cambiar modo
-    const rangeMonths=Math.ceil(evoSlice.length/4.3);
+    // Benchmarks mapeados a TODO el historial; los rangos solo rebanan
+    const rangeMonths=Math.ceil(evoFull.length/21);
     const range=rangeMonths<=3?'3mo':rangeMonths<=6?'6mo':rangeMonths<=12?'1y':'2y';
     Promise.all([
-      fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?interval=1wk&range=${range}`),
-      fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/%5EIXIC?interval=1wk&range=${range}`)
+      fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?interval=1d&range=${range}`),
+      fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/%5EIXIC?interval=1d&range=${range}`)
     ]).then(([jSP,jIX])=>{
       for(const [key,j] of [['sp500',jSP],['ixic',jIX]]){
         const closes=j?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
         if(!closes) continue;
         const valid=closes.filter(v=>v!=null);
         const b0=valid[0];
-        evoBenchData[key]=evoSlice.map((_,i)=>{
-          const idx=Math.round(i/(evoSlice.length-1)*(valid.length-1));
-          return parseFloat(fmt((valid[idx]-b0)/b0*100,2));
+        _evoBenchFull[key]=evoFull.map((_,i)=>{
+          const idx=Math.round(i/(Math.max(evoFull.length-1,1))*(valid.length-1));
+          return (valid[idx]-b0)/b0*100;
         });
       }
+      applyEvoRange();
+      renderEvoChart();
     }).catch(()=>{});
 
+    applyEvoRange();
     renderEvoChart();
   } catch(e){ console.error('Evo:',e); }
 }
 
+function switchEvoRange(n){
+  evoRangeN=n;
+  [7,30,90,365,0].forEach(r=>document.getElementById('evr-'+r)?.classList.toggle('active',r===n));
+  applyEvoRange();
+  renderEvoChart();
+}
+
 function renderEvoChart(){
   if(!evoSlice) return;
-  const labels=evoSlice.map(h=>{ const d=new Date(h.fecha); return isNaN(d.getTime())?String(h.fecha).slice(0,7):d.toLocaleDateString('es-CL',{month:'short',year:'2-digit'}); });
+  const shortRange=evoSlice.length<=40;
+  const labels=evoSlice.map(h=>{ const d=new Date(h.fecha); return isNaN(d.getTime())?String(h.fecha).slice(0,7):d.toLocaleDateString('es-CL',shortRange?{day:'numeric',month:'short'}:{month:'short',year:'2-digit'}); });
   const ctx=document.getElementById('evo-chart').getContext('2d');
   if(evoChart) evoChart.destroy();
 
@@ -1362,12 +1440,52 @@ function switchEvo(mode){
 }
 
 // ── PORTFOLIO ─────────────────────────────────────────────────
+// Cierres 3 meses de todos los tickers — un solo fetch compartido por
+// heatmap, beta y sparklines
+let _pfClosesPromise = null;
+function getPfCloses(tickers) {
+  if (_pfClosesPromise) return _pfClosesPromise;
+  const yfSym = t => t === 'QUINENCO' ? 'QUINENCO.SN' : t;
+  _pfClosesPromise = Promise.all(tickers.map(t =>
+    fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yfSym(t))}?interval=1d&range=3mo`)
+      .then(j => [t, (j?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null)])
+      .catch(() => [t, []])
+  )).then(pairs => Object.fromEntries(pairs));
+  return _pfClosesPromise;
+}
+
+// Skeleton placeholder mientras carga una lista
+function skelRows(n = 6) {
+  return Array.from({length: n}, () => `<div class="skel-row">
+    <div class="skel skel-circle" style="width:32px;height:32px"></div>
+    <div style="flex:1"><div class="skel" style="height:11px;width:55%"></div><div class="skel" style="height:9px;width:35%;margin-top:6px"></div></div>
+    <div style="width:70px"><div class="skel" style="height:11px;width:100%"></div><div class="skel" style="height:9px;width:70%;margin-top:6px;margin-left:auto"></div></div>
+  </div>`).join('');
+}
+
+// Count-up animado para el total del hero
+function countUp(el, target, fmtFn, dur = 650) {
+  if (!el) return;
+  const startTxt = el.textContent.replace(/[^0-9.]/g, '');
+  const start = parseFloat(startTxt) || 0;
+  if (Math.abs(start - target) < 0.01) { el.textContent = fmtFn(target); return; }
+  const t0 = performance.now();
+  function tick(now) {
+    const p = Math.min((now - t0) / dur, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    el.textContent = fmtFn(start + (target - start) * ease);
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
 async function renderPortfolio(){
   const el=document.getElementById('pos-list');
+  if(!el.querySelector('.pos-row')) el.innerHTML=skelRows(8);
   try {
     const {resumen,posiciones}=await get('portafolio');
     lastPosiciones=posiciones;
-    document.getElementById('p-total').textContent=usd(resumen.valor);
+    countUp(document.getElementById('p-total'), resumen.valor, usd);
     const gpEl=document.getElementById('p-gp');
     gpEl.textContent=(resumen.ganancia>=0?'+':'')+usd(resumen.ganancia);
     gpEl.className='meta-value '+cls(resumen.ganancia);
@@ -1375,10 +1493,53 @@ async function renderPortfolio(){
     retEl.textContent=fmtPct(resumen.retorno);
     retEl.className='meta-value '+cls(resumen.retorno);
     renderPosRows(posiciones);
+    drawSparklines(posiciones);
+    renderPerfPanel(resumen.valor);
     calcPortfolioBeta(posiciones);
     renderJournal();
     buildHeatmap('heatmap-pf-container');
   } catch(e){ console.error('Portfolio:',e); el.innerHTML='<div class="loading">Error al cargar posiciones.</div>'; }
+}
+
+// ── RENDIMIENTO POR PERÍODO ───────────────────────────────────
+async function renderPerfPanel(valorActual){
+  const grid=document.getElementById('perf-grid');
+  if(!grid) return;
+  let hist=[];
+  try { ({historial: hist}={...await get('historial')}); } catch { return; }
+  if(!hist?.length) return;
+
+  const entries=hist
+    .map(h=>({ts:new Date(h.fecha).getTime(), valor:h.valor}))
+    .filter(h=>!isNaN(h.ts)&&h.valor>0)
+    .sort((a,b)=>a.ts-b.ts);
+  if(!entries.length) return;
+
+  const now=Date.now();
+  const hoy0=new Date(); hoy0.setHours(0,0,0,0);
+  // Valor de referencia: la última entrada anterior o igual al timestamp pedido
+  const refAt=ts=>{ let r=null; for(const e of entries){ if(e.ts<=ts) r=e; else break; } return r; };
+
+  const inicioAno=new Date(new Date().getFullYear(),0,1).getTime();
+  const periodos=[
+    {label:'Hoy',    ref:refAt(hoy0.getTime()-1)},
+    {label:'Semana', ref:refAt(now-7*864e5)},
+    {label:'Mes',    ref:refAt(now-30*864e5)},
+    {label:'YTD',    ref:refAt(inicioAno-1)||(entries[0].ts>=inicioAno?entries[0]:null)},
+    {label:'1 año',  ref:(now-entries[0].ts>=300*864e5)?refAt(now-365*864e5):null},
+  ];
+
+  grid.innerHTML=periodos.map(p=>{
+    if(!p.ref) return `<div class="perf-cell"><div class="perf-label">${p.label}</div><div class="perf-pct" style="color:var(--faint)">—</div><div class="perf-usd">sin datos</div></div>`;
+    const dif=valorActual-p.ref.valor;
+    const pct=dif/p.ref.valor*100;
+    const c=dif>=0?'var(--green)':'var(--red)';
+    return `<div class="perf-cell">
+      <div class="perf-label">${p.label}</div>
+      <div class="perf-pct" style="color:${c}">${pct>=0?'+':''}${fmt(pct,2)}%</div>
+      <div class="perf-usd" style="color:${c}">${dif>=0?'+':'−'}$${fmt(Math.abs(dif))}</div>
+    </div>`;
+  }).join('');
 }
 
 function calcScore(p) {
@@ -1404,6 +1565,22 @@ function calcScore(p) {
   return Math.round(Math.min(95, Math.max(5, score)));
 }
 
+// Dominios para logos (Google favicons); fallback a iniciales si falla
+const TICKER_DOMAINS = {
+  NVDA:'nvidia.com', MSFT:'microsoft.com', TSLA:'tesla.com', ASML:'asml.com',
+  PLTR:'palantir.com', BLK:'blackrock.com', UNH:'unitedhealthgroup.com',
+  INTU:'intuit.com', TTWO:'take2games.com', CRWV:'coreweave.com',
+  VOO:'vanguard.com', VPU:'vanguard.com', SCHD:'schwab.com',
+  QUINENCO:'quinenco.cl', RKLB:'rocketlabusa.com', AAPL:'apple.com',
+  AMZN:'amazon.com', GOOGL:'abc.xyz', META:'meta.com', AMD:'amd.com'
+};
+function logoHTML(ticker){
+  const dom=TICKER_DOMAINS[ticker];
+  const ini=ticker.slice(0,3);
+  if(!dom) return `<div class="pos-logo">${ini}</div>`;
+  return `<div class="pos-logo"><img src="https://www.google.com/s2/favicons?domain=${dom}&sz=64" alt="" loading="lazy" onerror="this.parentNode.textContent='${ini}'"></div>`;
+}
+
 function renderPosRows(posiciones){
   const el=document.getElementById('pos-list');
   const sorted=[...posiciones].sort((a,b)=>b.valorUSD-a.valorUSD);
@@ -1418,20 +1595,37 @@ function renderPosRows(posiciones){
     const sc = score>=70?'var(--green)':score>=40?'var(--yellow)':'var(--red)';
     const accion = score>=70?'Entrada atractiva':score>=55?'Mantener y vigilar':score>=40?'Mantener':'Considerar reducir';
     return `<div class="pos-row" onclick="openStock('${p.ticker}')">
-      <div class="pos-ticker" title="${p.ticker}">${p.ticker}</div>
-      <div class="pos-info">
-        <div class="pos-name">${p.nombre||p.ticker}</div>
+      ${logoHTML(p.ticker)}
+      <div class="pos-info" style="margin-left:10px">
+        <div class="pos-tkr">${p.ticker} <span style="font-weight:400;font-size:.72rem;color:var(--muted)">${p.nombre||''}</span></div>
         <div class="pos-sub">${p.plataforma||''} · ${fmt(toPct(p.peso),1)}%</div>
         <div style="font-size:.65rem;color:${sc};margin-top:2px;font-weight:600">${accion}</div>
       </div>
+      <svg class="spark" data-t="${p.ticker}" viewBox="0 0 52 22" preserveAspectRatio="none"></svg>
       <div class="pos-right">
         <div class="pos-val">${val}</div>
         <div class="pos-var ${vd>=0?'positive':'negative'}">${vdSign}${fmt(vd,2)}% hoy</div>
         <div class="pos-var ${secondCls}" style="font-size:.7rem">${secondLine}</div>
       </div>
-      <div style="width:30px;height:30px;border-radius:50%;border:2px solid ${sc};display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:800;color:${sc};flex-shrink:0;margin-left:6px">${score}</div>
+      <div style="width:28px;height:28px;border-radius:50%;border:2px solid ${sc};display:flex;align-items:center;justify-content:center;font-size:.58rem;font-weight:800;color:${sc};flex-shrink:0;margin-left:6px">${score}</div>
     </div>`;
   }).join('');
+}
+
+// Sparklines 7 días por posición (reusa el fetch compartido de 3 meses)
+async function drawSparklines(posiciones){
+  try {
+    const closes=await getPfCloses(posiciones.map(p=>p.ticker));
+    document.querySelectorAll('#pos-list .spark').forEach(svg=>{
+      const arr=(closes[svg.dataset.t]||[]).slice(-8);
+      if(arr.length<3){ svg.style.display='none'; return; }
+      const min=Math.min(...arr), max=Math.max(...arr), span=(max-min)||1;
+      const pts=arr.map((v,i)=>`${(i/(arr.length-1)*50+1).toFixed(1)},${(19-((v-min)/span*16)+1.5).toFixed(1)}`).join(' ');
+      const up=arr[arr.length-1]>=arr[0];
+      const color=up?'var(--green)':'var(--red)';
+      svg.innerHTML=`<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>`;
+    });
+  } catch {}
 }
 
 // ── STOCK DETAIL ──────────────────────────────────────────────
@@ -1696,7 +1890,7 @@ async function renderEarnings(){
     if(cached){ const {data,ts}=JSON.parse(cached); if(Date.now()-ts<CACHE_TTL){ buildEarningsTable(data,el); return; } }
   } catch {}
 
-  el.innerHTML='<div class="loading"><div class="spinner"></div>Cargando earnings…</div>';
+  el.innerHTML=skelRows(3);
 
   try {
     const {earnings}=await get('earnings', true);
@@ -1736,7 +1930,7 @@ async function renderNoticias(){
   document.getElementById('news-date').textContent=new Date().toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'});
   renderEarnings();
   if(allNewsCache.length){ buildNewsChips(); renderNewsList(allNewsCache,activeNewsFilter); return; }
-  el.innerHTML='<div class="loading"><div class="spinner"></div>Cargando noticias…</div>';
+  el.innerHTML=skelRows(6);
 
   let tickers=['TSLA','NVDA','MSFT','ASML','PLTR','BLK','UNH','INTU'];
   try { const {posiciones}=await get('portafolio'); tickers=posiciones.map(p=>p.ticker).filter(t=>t!=='QUINENCO').slice(0,7); } catch {}
@@ -2051,7 +2245,6 @@ async function calcPortfolioBeta(posiciones) {
   const valorTotal = posiciones.reduce((s, p) => s + (p.valorUSD || 0), 0);
   if (!valorTotal) return;
 
-  const yfSym = t => t === 'QUINENCO' ? 'QUINENCO.SN' : t;
   const tickers = posiciones.map(p => p.ticker);
   const weights = {};
   posiciones.forEach(p => { weights[p.ticker] = (p.valorUSD || 0) / valorTotal; });
@@ -2059,12 +2252,10 @@ async function calcPortfolioBeta(posiciones) {
   // Excluir cripto puro (no tienen beta vs SPY significativa) y tickers SN (bolsa chilena)
   const spTickers = tickers.filter(t => !t.endsWith('.SN') && t !== 'QUINENCO');
 
-  let results, spyResult;
+  let closesMap, spyResult;
   try {
-    [results, spyResult] = await Promise.all([
-      Promise.all(spTickers.map(t =>
-        fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yfSym(t))}?interval=1d&range=3mo`).catch(() => null)
-      )),
+    [closesMap, spyResult] = await Promise.all([
+      getPfCloses(tickers),
       fetchYF('https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&range=3mo').catch(() => null)
     ]);
   } catch(e) { return; }
@@ -2075,9 +2266,9 @@ async function calcPortfolioBeta(posiciones) {
 
   // Retornos diarios de cada ticker
   const tickerReturns = {};
-  spTickers.forEach((t, i) => {
-    const closes = results[i]?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(v => v != null);
-    if (closes && closes.length > 5)
+  spTickers.forEach(t => {
+    const closes = closesMap[t] || [];
+    if (closes.length > 5)
       tickerReturns[t] = closes.slice(1).map((v, j) => (v - closes[j]) / closes[j]);
   });
 
@@ -2150,19 +2341,15 @@ async function buildHeatmap(containerId) {
   } catch(e) { el.innerHTML = '<div class="loading">Error al obtener posiciones.</div>'; return; }
   if (!tickers.length) { el.innerHTML = '<div class="loading">Sin posiciones.</div>'; return; }
 
-  const yfSym = t => t === 'QUINENCO' ? 'QUINENCO.SN' : t;
-  let results;
+  let closesMap;
   try {
-    results = await Promise.all(tickers.map(t =>
-      fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yfSym(t))}?interval=1d&range=3mo`).catch(()=>null)
-    ));
+    closesMap = await getPfCloses(tickers);
   } catch(e) { el.innerHTML = '<div class="loading">Error al obtener datos.</div>'; return; }
 
   const returns = {};
-  tickers.forEach((t, i) => {
-    const closes = results[i]?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
-    if (!closes || closes.length < 5) return;
-    const valid = closes.filter(v => v != null);
+  tickers.forEach(t => {
+    const valid = closesMap[t] || [];
+    if (valid.length < 5) return;
     returns[t] = valid.slice(1).map((v, j) => (v - valid[j]) / valid[j]);
   });
 
@@ -2618,6 +2805,7 @@ function invalidatePortfolioCaches() {
   cache['journal']    = null;
   cache['historial']  = null;
   _heatmapHTML  = null;   // correlación 90d
+  _pfClosesPromise = null; // precios 3m compartidos (sparklines/beta/heatmap)
   _ideasData    = null;   // oportunidades + diversificación
   allNewsCache  = [];     // noticias por ticker
   activeNewsFilter = 'all';
@@ -2627,6 +2815,7 @@ function invalidatePortfolioCaches() {
 async function renderJournal(force = false) {
   const el = document.getElementById('journal-list');
   if (!el) return;
+  if (!_journalEntries.length) el.innerHTML = skelRows(3);
   try {
     const { journal } = await get('journal', force);
     _journalEntries = journal || [];
@@ -3047,6 +3236,26 @@ Máximo 250 palabras. Directo y específico a estas posiciones.`;
     btn.textContent = 'Resumen semanal';
   }
 }
+
+// ── PULL TO REFRESH ───────────────────────────────────────────
+(function(){
+  let startY = 0, pulling = false, busy = false;
+  document.addEventListener('touchstart', e => {
+    if (window.scrollY <= 0 && !busy) { startY = e.touches[0].clientY; pulling = true; }
+  }, {passive: true});
+  document.addEventListener('touchmove', e => {
+    if (!pulling || busy) return;
+    if (e.touches[0].clientY - startY > 90 && window.scrollY <= 0) {
+      pulling = false; busy = true;
+      document.getElementById('ptr').classList.add('show');
+      invalidatePortfolioCaches();
+      cache['indices'] = null; cache['alertas'] = null;
+      if (curPage !== 'stock') navigate(curPage);
+      setTimeout(() => { document.getElementById('ptr').classList.remove('show'); busy = false; }, 1400);
+    }
+  }, {passive: true});
+  document.addEventListener('touchend', () => { pulling = false; }, {passive: true});
+})();
 
 // ── TEMA CLARO/OSCURO ─────────────────────────────────────────
 // Preferencia: 'auto' (claro 7:00–19:00, oscuro el resto) | 'light' | 'dark'
