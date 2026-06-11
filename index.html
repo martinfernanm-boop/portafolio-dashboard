@@ -839,6 +839,9 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
     <input id="bnc-key-input" type="text" placeholder="Tu API Key de Binance" autocomplete="off">
     <label>Secret Key</label>
     <input id="bnc-secret-input" type="password" placeholder="Tu Secret Key de Binance" autocomplete="off">
+    <label>URL del proxy (Cloudflare Worker)</label>
+    <input id="bnc-worker-input" type="text" placeholder="https://tu-worker.usuario.workers.dev" autocomplete="off">
+    <p style="margin:-6px 0 10px;font-size:.7rem">Necesario porque Binance bloqueó navegadores. <a href="https://github.com/martinfernanm-boop/portafolio-dashboard/blob/main/binance-worker.js" target="_blank" rel="noopener" style="color:var(--blue)">Instrucciones aquí</a> (gratis, 5 min).</p>
     <div class="bnc-modal-btns">
       <button class="bnc-cancel-btn" onclick="closeBncModal()">Cancelar</button>
       <button class="bnc-save-btn" onclick="saveBncKeys()">Guardar</button>
@@ -1097,8 +1100,9 @@ async function hmacSha256(secret, message) {
   return Array.from(new Uint8Array(sig)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-// Hosts alternativos de Binance: misma API, misma firma. El proxy CORS no sirve
-// para endpoints firmados (no reenvía el header X-MBX-APIKEY).
+// Binance bloqueó el header X-MBX-APIKEY desde navegadores (CORS), así que
+// los endpoints firmados van por un Cloudflare Worker propio del usuario.
+// Los endpoints públicos (/time, /ticker/price) siguen directos.
 const BNC_HOSTS = ['api.binance.com','api1.binance.com','api2.binance.com','api3.binance.com'];
 
 async function bncParse(resp, host) {
@@ -1107,6 +1111,7 @@ async function bncParse(resp, host) {
   try { data = JSON.parse(text); }
   catch { throw new Error(`${host} respondió HTTP ${resp.status} (no JSON). Reintenta en unos segundos.`); }
   if (data.code && data.msg) throw new Error(`Binance ${data.code}: ${data.msg}`);
+  if (data.error) throw new Error(`Proxy: ${data.error}`);
   return data;
 }
 
@@ -1115,7 +1120,10 @@ async function fetchBinanceAccount() {
   const secret = localStorage.getItem('bnc_secret');
   if (!apiKey || !secret) return null;
 
-  // Timestamp del servidor para evitar error -1021
+  const worker = (localStorage.getItem('bnc_worker') || '').replace(/\/+$/, '');
+  if (!worker) throw new Error('NEEDS_WORKER');
+
+  // Timestamp del servidor para evitar error -1021 (endpoint público, va directo)
   let ts = Date.now();
   for (const h of BNC_HOSTS) {
     try {
@@ -1131,9 +1139,10 @@ async function fetchBinanceAccount() {
   let lastErr = new Error('No se pudo conectar con Binance');
   for (const h of BNC_HOSTS) {
     try {
-      const resp = await fetch(`https://${h}/api/v3/account?${qs}&signature=${sig}`, {
+      const binanceUrl = `https://${h}/api/v3/account?${qs}&signature=${sig}`;
+      const resp = await fetch(`${worker}/?url=${encodeURIComponent(binanceUrl)}`, {
         headers: { 'X-MBX-APIKEY': apiKey },
-        signal: AbortSignal.timeout(10000)
+        signal: AbortSignal.timeout(12000)
       });
       return await bncParse(resp, h);
     } catch(e) {
@@ -1210,10 +1219,25 @@ async function renderCrypto() {
     });
     el.innerHTML = rows || '<div style="color:var(--muted);font-size:.84rem;text-align:center;padding:16px 0">Sin posiciones</div>';
   } catch(e) {
+    if (e.message === 'NEEDS_WORKER') {
+      el.innerHTML = `<div style="padding:16px 14px">
+        <div style="font-size:.86rem;font-weight:600;margin-bottom:8px">Falta un paso: el proxy gratuito</div>
+        <div style="font-size:.78rem;color:var(--muted);line-height:1.7;margin-bottom:12px">
+          Binance bloqueó el acceso directo desde navegadores. La solución es un
+          Cloudflare Worker tuyo (gratis, 5 minutos, sin tarjeta):<br>
+          1. Crea cuenta en <a href="https://dash.cloudflare.com" target="_blank" rel="noopener" style="color:var(--blue)">dash.cloudflare.com</a><br>
+          2. Workers &amp; Pages → Create Worker → Deploy → Edit code<br>
+          3. Pega el código de <a href="https://github.com/martinfernanm-boop/portafolio-dashboard/blob/main/binance-worker.js" target="_blank" rel="noopener" style="color:var(--blue)">binance-worker.js</a> y dale Deploy<br>
+          4. Copia la URL del worker y pégala abajo en Configurar
+        </div>
+        <button onclick="openBncModal()" class="btn btn-primary">Configurar</button>
+      </div>`;
+      return;
+    }
     el.innerHTML = `<div style="text-align:center;padding:20px 0">
       <div style="color:var(--red);font-size:.84rem;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:6px"><svg class="ico-sm ico"><use href="#i-alert"/></svg> ${e.message}</div>
-      ${e.message.includes('IP') || e.message.includes('fetch') ? '<div style="font-size:.75rem;color:var(--muted);margin-bottom:10px">Verifica que la API key no tenga restricción de IP en Binance</div>' : ''}
-      <button onclick="openBncModal()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:7px 16px;font-size:.82rem;cursor:pointer">Revisar keys</button>
+      ${e.message.includes('IP') ? '<div style="font-size:.75rem;color:var(--muted);margin-bottom:10px">Verifica que la API key no tenga restricción de IP en Binance</div>' : ''}
+      <button onclick="openBncModal()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:7px 16px;font-size:.82rem;cursor:pointer">Revisar configuración</button>
     </div>`;
   }
 }
@@ -1262,21 +1286,25 @@ function openBncModal() {
   const s = localStorage.getItem('bnc_secret') || '';
   document.getElementById('bnc-key-input').value = k;
   document.getElementById('bnc-secret-input').value = s ? '••••••••' : '';
+  document.getElementById('bnc-worker-input').value = localStorage.getItem('bnc_worker') || '';
   document.getElementById('bnc-modal-overlay').style.display = 'flex';
 }
 function closeBncModal() { document.getElementById('bnc-modal-overlay').style.display = 'none'; }
 function saveBncKeys() {
   const k = document.getElementById('bnc-key-input').value.trim();
   const s = document.getElementById('bnc-secret-input').value.trim();
+  const w = document.getElementById('bnc-worker-input').value.trim();
   if (!k) { alert('Ingresa la API Key'); return; }
+  if (w && !/^https:\/\/.+\.workers\.dev/.test(w)) { alert('La URL del proxy debe ser de tipo https://….workers.dev'); return; }
   localStorage.setItem('bnc_key', k);
   if (s && s !== '••••••••') localStorage.setItem('bnc_secret', s);
+  if (w) localStorage.setItem('bnc_worker', w); else localStorage.removeItem('bnc_worker');
   closeBncModal();
   renderCrypto();
 }
 function clearBncKeys() {
   if (!confirm('¿Borrar las keys de Binance guardadas?')) return;
-  localStorage.removeItem('bnc_key'); localStorage.removeItem('bnc_secret');
+  localStorage.removeItem('bnc_key'); localStorage.removeItem('bnc_secret'); localStorage.removeItem('bnc_worker');
   closeBncModal(); renderCrypto();
 }
 
