@@ -12,21 +12,30 @@
 <meta name="apple-mobile-web-app-title" content="Portafolio">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#0b0e14;--surface:#11151c;--surface2:#1a2029;--surface3:#232a35;
-  --border:#262e39;--border-strong:#37414e;
-  --text:#e8edf4;--muted:#8b95a3;--faint:#5c6470;
-  --green:#34d07c;--red:#f4596b;--blue:#4f9cf9;--yellow:#e0a93e;
+  --bg:#06080f;--surface:rgba(255,255,255,.045);--surface2:rgba(255,255,255,.07);--surface3:rgba(255,255,255,.11);
+  --border:rgba(255,255,255,.075);--border-strong:rgba(255,255,255,.16);
+  --text:#eef2f8;--muted:#8d97a7;--faint:#5d6675;
+  --green:#3ddc8e;--red:#ff5d72;--blue:#5b8cff;--yellow:#e8b54a;
   --purple:#a78bfa;--orange:#fb923c;
-  --green-bg:rgba(52,208,124,.12);--red-bg:rgba(244,89,107,.12);
-  --blue-bg:rgba(79,156,249,.12);--yellow-bg:rgba(224,169,62,.12);
-  --r-sm:8px;--r-md:12px;--r-lg:16px;
-  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.18);
+  --green-bg:rgba(61,220,142,.13);--red-bg:rgba(255,93,114,.13);
+  --blue-bg:rgba(91,140,255,.14);--yellow-bg:rgba(232,181,74,.13);
+  --r-sm:10px;--r-md:16px;--r-lg:20px;
+  --glass:rgba(255,255,255,.045);
+  --glass-hi:inset 0 1px 0 rgba(255,255,255,.06);
+  --shadow:0 1px 2px rgba(0,0,0,.35),0 8px 28px rgba(0,0,0,.28);
 }
 html{-webkit-text-size-adjust:100%}
-body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:calc(64px + env(safe-area-inset-bottom,0px) + 8px);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px) + 8px);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-feature-settings:'cv11','ss01'}
+body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:
+  radial-gradient(58% 42% at 82% -8%,rgba(59,90,180,.34) 0%,transparent 65%),
+  radial-gradient(45% 38% at -12% 16%,rgba(99,70,190,.20) 0%,transparent 62%),
+  radial-gradient(50% 45% at 50% 112%,rgba(28,68,120,.22) 0%,transparent 60%)}
 a{color:inherit;text-decoration:none}
 button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 ::selection{background:var(--blue-bg)}
@@ -38,21 +47,23 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .ico-sm{width:15px;height:15px}
 .ico-xs{width:13px;height:13px}
 
-/* NAV */
-.nav-bar{position:fixed;bottom:0;left:0;right:0;height:calc(64px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:rgba(17,21,28,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--border);display:flex;z-index:300}
-.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--faint);font-size:.62rem;font-weight:600;letter-spacing:.01em;border:none;background:none;transition:color .15s}
+/* NAV — dock flotante de vidrio */
+.nav-bar{position:fixed;bottom:calc(10px + env(safe-area-inset-bottom,0px));left:12px;right:12px;height:62px;background:rgba(16,20,30,.72);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border:1px solid rgba(255,255,255,.09);border-radius:26px;display:flex;z-index:300;box-shadow:0 12px 40px rgba(0,0,0,.45),var(--glass-hi)}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;color:var(--faint);font-size:.6rem;font-weight:600;letter-spacing:.01em;border:none;background:none;transition:color .18s,transform .18s;border-radius:20px}
 .nav-item.active{color:var(--blue)}
+.nav-item:active{transform:scale(.93)}
 .nav-item .ico{width:21px;height:21px}
 
 /* PAGES */
 .page{display:none}.page.active{display:block}
 
 /* HERO */
-.market-banner{display:flex;align-items:center;gap:8px;padding:7px 16px;font-size:.76rem;font-weight:500;color:var(--muted);background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.market-banner{display:flex;align-items:center;gap:8px;margin:0 16px 6px;padding:7px 14px;font-size:.72rem;font-weight:500;color:var(--muted);background:var(--glass);border:1px solid var(--border);border-radius:99px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);white-space:nowrap;overflow:hidden}
+.market-banner>span:first-of-type{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .market-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .market-dot.open{background:var(--green);box-shadow:0 0 8px var(--green)}
 .market-dot.closed{background:var(--red)}
-.market-countdown{margin-left:auto;color:var(--faint);font-size:.72rem;font-variant-numeric:tabular-nums}
+.market-countdown{margin-left:auto;color:var(--faint);font-size:.7rem;font-variant-numeric:tabular-nums;flex-shrink:0}
 .hero{padding:10px 16px 8px}
 #page-home .hero{text-align:center}
 #page-home .hero-meta{justify-content:center}
@@ -71,31 +82,36 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .section-sub{font-size:.72rem;color:var(--faint);margin:-2px 0 5px;line-height:1.4}
 
 /* FILTER SELECT */
-.fsel{background:var(--surface2);border:1px solid var(--border);border-radius:99px;color:var(--muted);font-size:.7rem;font-weight:600;padding:3px 10px;cursor:pointer;outline:none;font-family:inherit}
+.fsel{background:var(--glass);border:1px solid var(--border);border-radius:99px;color:var(--muted);font-size:.7rem;font-weight:600;padding:3px 10px;cursor:pointer;outline:none;font-family:inherit;backdrop-filter:blur(10px)}
 .fsel:focus{border-color:var(--blue)}
 
 /* TOGGLE PILL */
-.toggle-pill{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:99px;overflow:hidden;padding:2px}
+.toggle-pill{display:flex;background:var(--glass);border:1px solid var(--border);border-radius:99px;overflow:hidden;padding:2px;backdrop-filter:blur(10px)}
 .tpill-btn{padding:3px 12px;font-size:.68rem;font-weight:600;border:none;background:none;color:var(--muted);cursor:pointer;transition:all .15s;border-radius:99px}
-.tpill-btn.active{background:var(--blue);color:#fff}
+.tpill-btn.active{background:linear-gradient(135deg,#5b8cff,#3d6df2);color:#fff;box-shadow:0 2px 8px rgba(91,140,255,.35)}
+
+/* CHANGE PILL (hero) */
+.change-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 13px;border-radius:99px;background:var(--glass);border:1px solid var(--border);font-size:.82rem;font-weight:600;backdrop-filter:blur(10px)}
+.change-pill:has(.positive){background:var(--green-bg);border-color:rgba(61,220,142,.28)}
+.change-pill:has(.negative){background:var(--red-bg);border-color:rgba(255,93,114,.28)}
 
 /* BUTTONS */
-.btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:var(--r-sm);padding:6px 14px;font-size:.78rem;font-weight:600;cursor:pointer;transition:opacity .15s,transform .1s}
-.btn:active{transform:scale(.97)}
+.btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:99px;padding:7px 16px;font-size:.76rem;font-weight:600;cursor:pointer;transition:opacity .15s,transform .12s,box-shadow .2s}
+.btn:active{transform:scale(.96)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
-.btn-primary{background:var(--blue);color:#fff}
-.btn-accent{background:var(--purple);color:#fff}
-.btn-ghost{background:none;color:var(--muted);padding:4px 8px}
+.btn-primary{background:linear-gradient(135deg,#5b8cff,#3d6df2);color:#fff;box-shadow:0 4px 16px rgba(91,140,255,.32),var(--glass-hi)}
+.btn-accent{background:linear-gradient(135deg,#a78bfa,#8b5cf6);color:#fff;box-shadow:0 4px 16px rgba(139,92,246,.30),var(--glass-hi)}
+.btn-ghost{background:none;color:var(--muted);padding:4px 8px;box-shadow:none}
 .btn-ghost:hover{color:var(--text)}
 
 /* BADGE */
-.badge{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--surface2);letter-spacing:.02em}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:700;padding:3px 11px;border-radius:99px;background:var(--glass);border:1px solid var(--border);letter-spacing:.02em;backdrop-filter:blur(10px)}
 
-/* CARDS */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;margin-bottom:8px;box-shadow:var(--shadow)}
+/* CARDS — liquid glass */
+.card{background:var(--glass);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;margin-bottom:8px;box-shadow:var(--shadow),var(--glass-hi);backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%)}
 
 /* CHART BOX */
-.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:12px;margin-bottom:8px;box-shadow:var(--shadow)}
+.chart-box{background:var(--glass);border:1px solid var(--border);border-radius:var(--r-md);padding:12px;margin-bottom:8px;box-shadow:var(--shadow),var(--glass-hi);backdrop-filter:blur(18px) saturate(150%);-webkit-backdrop-filter:blur(18px) saturate(150%)}
 
 /* POSITION ROWS — QUINENCO FIX: ticker columna más ancha + overflow */
 .pos-row{display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
@@ -186,8 +202,8 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .platform-name{font-weight:600;font-size:.82rem}
 
 /* BINANCE MODAL */
-.bnc-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px}
-.bnc-modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:360px}
+.bnc-modal-overlay{position:fixed;inset:0;background:rgba(2,4,10,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px}
+.bnc-modal{background:rgba(18,23,34,.92);backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%);border:1px solid var(--border-strong);border-radius:22px;padding:20px;width:100%;max-width:360px;box-shadow:0 24px 64px rgba(0,0,0,.5),var(--glass-hi)}
 .bnc-modal h3{margin:0 0 4px;font-size:1rem}
 .bnc-modal p{font-size:.78rem;color:var(--muted);margin:0 0 14px;line-height:1.5}
 .bnc-modal label{font-size:.78rem;color:var(--muted);display:block;margin-bottom:3px}
@@ -215,7 +231,7 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .nf-chip.active{background:var(--blue);border-color:var(--blue);color:#fff}
 
 /* ── CHAT FAB ── */
-#chat-fab{position:fixed;bottom:calc(80px + env(safe-area-inset-bottom,0px));right:16px;width:50px;height:50px;border-radius:50%;background:var(--blue);border:none;cursor:pointer;box-shadow:0 4px 20px rgba(79,156,249,.45);z-index:310;transition:transform .15s;display:flex;align-items:center;justify-content:center}
+#chat-fab{position:fixed;bottom:calc(86px + env(safe-area-inset-bottom,0px));right:16px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#5b8cff,#7c5bff);border:none;cursor:pointer;box-shadow:0 8px 28px rgba(91,140,255,.45),var(--glass-hi);z-index:310;transition:transform .15s;display:flex;align-items:center;justify-content:center}
 #chat-fab:hover{transform:scale(1.08)}
 #chat-fab.open{display:none}
 
@@ -230,7 +246,7 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
   transition:transform .25s cubic-bezier(.4,0,.2,1);
 }
 #chat-panel.open{transform:translateY(0)}
-.chat-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.chat-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(16,20,30,.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);flex-shrink:0}
 .chat-header-title{font-weight:600;font-size:.95rem;display:flex;align-items:center;gap:8px}
 .chat-close{background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:4px 8px}
 .chat-close:hover{color:var(--text)}
@@ -301,7 +317,7 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 /* ── DESKTOP (≥900px) ── */
 @media(min-width:900px){
   body{padding-bottom:0;padding-left:220px}
-  .nav-bar{width:220px;height:100vh;flex-direction:column;border-right:1px solid var(--border);border-top:none;right:auto;padding:0 0 16px;justify-content:flex-start;gap:2px;overflow-y:auto}
+  .nav-bar{width:220px;height:100vh;top:0;bottom:0;left:0;right:auto;flex-direction:column;border:none;border-right:1px solid var(--border);border-radius:0;padding:0 0 16px;justify-content:flex-start;gap:2px;overflow-y:auto;background:rgba(12,16,26,.6);box-shadow:none}
   .nav-brand{display:flex!important;align-items:center;gap:8px;padding:20px 20px 16px;font-size:.9rem;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);margin-bottom:8px}
   .nav-item{flex:0 0 auto;flex-direction:row;justify-content:flex-start;gap:10px;padding:10px 20px;font-size:.83rem;border-radius:8px;margin:0 8px;width:auto}
   .nav-item:hover{color:var(--muted);background:var(--surface2)}
@@ -373,10 +389,9 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
       </button>
     <div class="hero-label"><svg class="ico-sm ico" style="color:var(--blue)"><use href="#i-logo"/></svg> Mi Portafolio</div>
     <div class="hero-total" id="h-total">—</div>
-    <div class="hero-meta">
-      <div class="meta-item"><span class="meta-label">Ganancia</span><span class="meta-value" id="h-gp">—</span></div>
-      <div class="meta-item"><span class="meta-label">Retorno</span><span class="meta-value" id="h-ret">—</span></div>
-      <div class="meta-item"><span class="meta-label">En caja</span><span class="meta-value" id="h-caja">—</span></div>
+    <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap">
+      <span class="change-pill"><span class="meta-value" id="h-gp">—</span><span style="opacity:.5">·</span><span class="meta-value" id="h-ret">—</span></span>
+      <span class="badge" style="color:var(--muted)">Caja&nbsp;<span class="num" id="h-caja" style="color:var(--text)">—</span></span>
     </div>
   </div>
   <div class="market-banner" id="market-banner">
@@ -818,6 +833,10 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 <script src="https://s3.tradingview.com/tv.js" async></script>
 <script>
 // ── CONFIG ────────────────────────────────────────────────────
+if (window.Chart) {
+  Chart.defaults.font.family = "'Inter',-apple-system,BlinkMacSystemFont,sans-serif";
+  Chart.defaults.color = '#8d97a7';
+}
 const API = 'https://script.google.com/macros/s/AKfycbzf5GTt1JUrftY5sGG2I3LVbFrRHyNO4LAxlthWPvRE1FJsDUKdqev2jc6Nxik86-bh/exec';
 
 const TV_SYM = {
@@ -1230,7 +1249,7 @@ function buildDonut(pos){
   }
   donutChart=new Chart(ctx,{
     type:'doughnut',
-    data:{labels,datasets:[{data,backgroundColor:bgColors,borderColor:'#161b22',borderWidth:2,hoverOffset:8}]},
+    data:{labels,datasets:[{data,backgroundColor:bgColors,borderColor:'#0a0e17',borderWidth:2,hoverOffset:8}]},
     options:{responsive:true,cutout:'62%',plugins:{
       legend:{display:true,position:'bottom',labels:{color:'#e6edf3',font:{size:11},boxWidth:12,padding:10}},
       tooltip:{callbacks:{label:c=>{
@@ -1288,8 +1307,8 @@ function renderEvoChart(){
     evoChart=new Chart(ctx,{type:'line',data:{labels,datasets:[{data:evoSlice.map(h=>h.valor),borderColor:'#58a6ff',borderWidth:2,fill:true,backgroundColor:grad,pointRadius:0,tension:.3}]},
       options:{responsive:true,interaction:{intersect:false,mode:'index'},
         plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>c[0].label,label:c=>' '+usd(c.raw)}}},
-        scales:{x:{ticks:{color:'#7d8590',maxTicksLimit:6,font:{size:10}},grid:{color:'#21262d'}},
-                y:{ticks:{color:'#7d8590',font:{size:10},callback:v=>'$'+fmt(v,0)},grid:{color:'#21262d'}}}}});
+        scales:{x:{ticks:{color:'#717c8d',maxTicksLimit:6,font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}},
+                y:{ticks:{color:'#717c8d',font:{size:10},callback:v=>'$'+fmt(v,0)},grid:{color:'rgba(255,255,255,.05)'}}}}});
   } else {
     // Modo benchmark: retorno % desde 0
     const base=evoSlice[0].valor;
@@ -1306,8 +1325,8 @@ function renderEvoChart(){
       options:{responsive:true,interaction:{intersect:false,mode:'index'},
         plugins:{legend:{display:true,position:'top',labels:{color:'#7d8590',font:{size:10},boxWidth:12,padding:8}},
                  tooltip:{callbacks:{title:c=>c[0].label,label:c=>(c.dataset.label||'')+': '+signedPct(c.raw)}}},
-        scales:{x:{ticks:{color:'#7d8590',maxTicksLimit:6,font:{size:10}},grid:{color:'#21262d'}},
-                y:{ticks:{color:'#7d8590',font:{size:10},callback:v=>(v>=0?'+':'')+v+'%'},grid:{color:'#21262d'}}}}});
+        scales:{x:{ticks:{color:'#717c8d',maxTicksLimit:6,font:{size:10}},grid:{color:'rgba(255,255,255,.05)'}},
+                y:{ticks:{color:'#717c8d',font:{size:10},callback:v=>(v>=0?'+':'')+v+'%'},grid:{color:'rgba(255,255,255,.05)'}}}}});
   }
 }
 
@@ -2534,7 +2553,7 @@ function openIdea(sym) {
         }}},
         scales:{
           x:{display:false},
-          y:{ticks:{color:'#7d8590',font:{size:10},callback:v=>'$'+fmt(v,v>500?0:2)}, grid:{color:'#21262d'}}
+          y:{ticks:{color:'#717c8d',font:{size:10},callback:v=>'$'+fmt(v,v>500?0:2)}, grid:{color:'rgba(255,255,255,.05)'}}
         }
       }
     });
