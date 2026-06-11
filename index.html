@@ -1331,7 +1331,7 @@ function buildDonut(pos){
     type:'doughnut',
     data:{labels,datasets:[{data,backgroundColor:bgColors,borderColor:getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#0a0e17',borderWidth:2,hoverOffset:8}]},
     options:{responsive:true,cutout:'62%',plugins:{
-      legend:{display:true,position:'bottom',labels:{color:'#e6edf3',font:{size:11},boxWidth:12,padding:10}},
+      legend:{display:true,position:'bottom',labels:{color:getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||'#e6edf3',font:{size:11},boxWidth:12,padding:10}},
       tooltip:{callbacks:{label:c=>{
         const total=c.dataset.data.reduce((a,b)=>a+b,0);
         const base=` ${c.label}: ${usd(c.raw)} (${fmt(c.raw/total*100,1)}%)`;
@@ -1426,7 +1426,7 @@ function renderEvoChart(){
     const signedPct = v => (v>=0?'+':'')+fmt(v,1)+'%';
     evoChart=new Chart(ctx,{type:'line',data:{labels,datasets},
       options:{responsive:true,interaction:{intersect:false,mode:'index'},
-        plugins:{legend:{display:true,position:'top',labels:{color:'#7d8590',font:{size:10},boxWidth:12,padding:8}},
+        plugins:{legend:{display:true,position:'top',labels:{color:getComputedStyle(document.documentElement).getPropertyValue('--muted').trim()||'#7d8590',font:{size:10},boxWidth:12,padding:8}},
                  tooltip:{callbacks:{title:c=>c[0].label,label:c=>(c.dataset.label||'')+': '+signedPct(c.raw)}}},
         scales:{x:{ticks:{color:'#7e8898',maxTicksLimit:6,font:{size:10}},grid:{color:'rgba(128,142,165,.14)'}},
                 y:{ticks:{color:'#7e8898',font:{size:10},callback:v=>(v>=0?'+':'')+v+'%'},grid:{color:'rgba(128,142,165,.14)'}}}}});
@@ -1680,26 +1680,24 @@ async function fetchFundamentals(ticker, cantidad){
   let q = null; // normalized data object
 
   // ── 1) Apps Script proxy (server-side, no CORS) ──────────────
-  if(ticker!=='QUINENCO'){
-    try {
-      const r = await fetch(`${API}?action=fundamentals&ticker=${ticker}`,
-        {signal: AbortSignal.timeout(9000)});
-      const d = await r.json();
-      if(d && !d.error && (d.trailingPE!=null || d.marketCap!=null || d.eps!=null)){
-        q = {
-          trailingPE: d.trailingPE, forwardPE: d.forwardPE,
-          eps: d.eps, beta: d.beta, marketCap: d.marketCap,
-          profitMargins: d.profitMargins, targetMeanPrice: d.targetMeanPrice,
-          averageAnalystRating: d.averageAnalystRating||null,
-          fiftyTwoWeekHigh: d.fiftyTwoWeekHigh, fiftyTwoWeekLow: d.fiftyTwoWeekLow,
-          regularMarketPrice: d.regularMarketPrice,
-          dividendRate: d.trailingAnnualDividendRate||null,
-          dividendYield: d.dividendYield, exDividendDate: null,
-          epsForward: null, earningsTimestamp: null, _src:'apps'
-        };
-      }
-    } catch(e){ console.warn('AS fundamentals:',e.message); }
-  }
+  try {
+    const r = await fetch(`${API}?action=fundamentals&ticker=${ticker}&_t=${Date.now()}`,
+      {signal: AbortSignal.timeout(12000)});
+    const d = await r.json();
+    if(d && !d.error && (d.trailingPE!=null || d.marketCap!=null || d.eps!=null || d.fiftyTwoWeekHigh!=null)){
+      q = {
+        trailingPE: d.trailingPE, forwardPE: d.forwardPE,
+        eps: d.eps, beta: d.beta, marketCap: d.marketCap,
+        profitMargins: d.profitMargins, targetMeanPrice: d.targetMeanPrice,
+        averageAnalystRating: d.averageAnalystRating||null,
+        fiftyTwoWeekHigh: d.fiftyTwoWeekHigh, fiftyTwoWeekLow: d.fiftyTwoWeekLow,
+        regularMarketPrice: d.regularMarketPrice,
+        dividendRate: d.trailingAnnualDividendRate||null,
+        dividendYield: d.dividendYield, exDividendDate: d.exDividendDate||null,
+        epsForward: d.epsForward||null, earningsTimestamp: d.earningsTimestamp||null, _src:'apps'
+      };
+    }
+  } catch(e){ console.warn('AS fundamentals:',e.message); }
 
   // ── 2) Yahoo Finance v10 direct (works if user has Yahoo cookies) ─
   if(!q){
