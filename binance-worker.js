@@ -42,10 +42,23 @@ export default {
     }
 
     const apiKey = request.headers.get('x-mbx-apikey') || '';
-    const resp = await fetch(t.toString(), {
-      headers: apiKey ? { 'X-MBX-APIKEY': apiKey } : {},
-    });
+    const upstreamHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+      'Accept': 'application/json',
+    };
+    if (apiKey) upstreamHeaders['X-MBX-APIKEY'] = apiKey;
+
+    const resp = await fetch(t.toString(), { headers: upstreamHeaders });
     const body = await resp.text();
+
+    // Si Binance devuelve algo que no es JSON (WAF/HTML), envolverlo para diagnóstico
+    if (body && body[0] !== '{' && body[0] !== '[') {
+      return new Response(JSON.stringify({
+        error: 'upstream no-JSON',
+        upstreamStatus: resp.status,
+        snippet: body.slice(0, 200),
+      }), { status: 502, headers: cors });
+    }
     return new Response(body, { status: resp.status, headers: cors });
   },
 };

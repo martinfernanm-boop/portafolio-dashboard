@@ -1103,7 +1103,7 @@ async function hmacSha256(secret, message) {
 // Binance bloqueó el header X-MBX-APIKEY desde navegadores (CORS), así que
 // los endpoints firmados van por un Cloudflare Worker propio del usuario.
 // Los endpoints públicos (/time, /ticker/price) siguen directos.
-const BNC_HOSTS = ['api.binance.com','api1.binance.com','api2.binance.com','api3.binance.com'];
+const BNC_HOSTS = ['api-gcp.binance.com','api.binance.com','api1.binance.com','api2.binance.com','api3.binance.com','api4.binance.com'];
 
 async function bncParse(resp, host) {
   const text = await resp.text();
