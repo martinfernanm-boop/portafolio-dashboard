@@ -979,9 +979,19 @@ const cls = n => toPct(n)>=0?'positive':'negative';
 const relTime = ts => { const m=Math.floor((Date.now()-ts*1000)/60000); if(m<60)return m+'m'; if(m<1440)return Math.floor(m/60)+'h'; return Math.floor(m/1440)+'d'; };
 const fmtDate = ts => ts ? new Date(ts*1000).toLocaleDateString('es-CL',{day:'numeric',month:'short',year:'numeric'}) : '—';
 
-// CORS proxy fallback para Yahoo Finance
+// URL del Cloudflare Worker del usuario (también acelera Yahoo y GAS)
+const workerURL = () => (localStorage.getItem('bnc_worker') || '').replace(/\/+$/, '');
+
+// Yahoo Finance: worker propio (con caché 60s) → directo → corsproxy
 const PROXY = 'https://corsproxy.io/?url=';
 async function fetchYF(url) {
+  const w = workerURL();
+  if (w) {
+    try {
+      const r = await fetch(`${w}/yf?url=${encodeURIComponent(url)}`, {signal: AbortSignal.timeout(10000)});
+      if (r.ok) return await r.json();
+    } catch {}
+  }
   try {
     const r = await fetch(url);
     if (!r.ok) throw new Error('status '+r.status);
@@ -993,9 +1003,26 @@ async function fetchYF(url) {
 }
 
 // ── DATA ──────────────────────────────────────────────────────
+// GAS: worker propio (caché 45s, mucho más rápido) → directo
 async function get(action, force=false) {
   const now = Date.now();
   if (!force && cache[action] && (now - cacheTs[action]) < CACHE_TTL) return cache[action];
+
+  const w = workerURL();
+  if (w) {
+    try {
+      const r = await fetch(`${w}/gas?action=${action}`, {signal: AbortSignal.timeout(15000)});
+      if (r.ok) {
+        const d = await r.json();
+        if (!d.error || d.error.indexOf('parámetro') === -1) { // worker antiguo sin /gas → fallback
+          cache[action] = d;
+          cacheTs[action] = now;
+          return d;
+        }
+      }
+    } catch {}
+  }
+
   const ctrl = new AbortController();
   const tid = setTimeout(() => ctrl.abort(), 30000);
   try {
@@ -1902,9 +1929,13 @@ const sleep = ms => new Promise(r=>setTimeout(r,ms));
 
 async function fetchNewsFor(query, tag){
   try {
-    // Always use proxy to avoid CORS; Yahoo Finance /v1/finance/search for news
     const url=`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=6&enableFuzzyQuery=false`;
-    const j=await fetch('https://corsproxy.io/?url='+encodeURIComponent(url)).then(r=>r.json());
+    const w = workerURL();
+    let j;
+    if (w) {
+      try { const r=await fetch(`${w}/yf?url=${encodeURIComponent(url)}`,{signal:AbortSignal.timeout(10000)}); if(r.ok) j=await r.json(); } catch {}
+    }
+    if (!j) j=await fetch('https://corsproxy.io/?url='+encodeURIComponent(url)).then(r=>r.json());
     return (j?.news||[]).map(n=>({...n,_ticker:tag}));
   } catch { return []; }
 }
