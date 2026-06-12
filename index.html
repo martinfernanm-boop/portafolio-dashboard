@@ -53,7 +53,7 @@ html[data-theme="light"]{
     radial-gradient(50% 45% at 50% 112%,rgba(110,150,210,.16) 0%,transparent 60%);
 }
 html{-webkit-text-size-adjust:100%}
-body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px) + 8px);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-feature-settings:'cv11','ss01';transition:background .35s,color .35s}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(76px + env(safe-area-inset-bottom,0px) + 8px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);overflow-x:clip;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-feature-settings:'cv11','ss01';transition:background .35s,color .35s}
 body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:var(--aurora)}
 a{color:inherit;text-decoration:none}
 button{font-family:inherit;-webkit-tap-highlight-color:transparent}
@@ -129,7 +129,7 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .perf-usd{font-size:.64rem;color:var(--muted);margin-top:1px;font-variant-numeric:tabular-nums}
 
 /* PULL TO REFRESH */
-#ptr{position:fixed;top:10px;left:50%;transform:translateX(-50%) translateY(-60px);z-index:400;background:var(--dock);border:1px solid var(--dock-border);border-radius:99px;padding:7px 16px;font-size:.74rem;font-weight:600;color:var(--muted);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);transition:transform .2s;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow)}
+#ptr{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%) translateY(-80px);z-index:400;background:var(--dock);border:1px solid var(--dock-border);border-radius:99px;padding:7px 16px;font-size:.74rem;font-weight:600;color:var(--muted);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);transition:transform .2s;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow)}
 #ptr.show{transform:translateX(-50%) translateY(0)}
 
 /* FILTER SELECT */
@@ -452,6 +452,7 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
     <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap">
       <span class="change-pill"><span class="meta-value" id="h-gp">—</span><span style="opacity:.5">·</span><span class="meta-value" id="h-ret">—</span></span>
       <span class="badge" style="color:var(--muted)">Caja&nbsp;<span class="num" id="h-caja" style="color:var(--text)">—</span></span>
+      <span class="badge" id="h-crypto" style="color:var(--muted);display:none"></span>
     </div>
   </div>
   <div class="market-banner" id="market-banner">
@@ -550,6 +551,7 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
       <div class="meta-item"><span class="meta-label">G/P</span><span class="meta-value" id="p-gp">—</span></div>
       <div class="meta-item"><span class="meta-label">Retorno</span><span class="meta-value" id="p-ret">—</span></div>
       <div class="meta-item"><span class="meta-label">Beta 90d</span><span class="meta-value" id="p-beta">—</span></div>
+      <div class="meta-item" id="p-crypto-wrap" style="display:none"><span class="meta-label">Crypto</span><span class="meta-value" id="p-crypto" style="color:#F0B90B">—</span></div>
     </div>
   </div>
   <div class="section" id="sec-perf">
@@ -1196,6 +1198,35 @@ async function fetchBinancePrices(assets) {
   return { USDT: 1 };
 }
 
+// Posiciones de Binance compartidas (tab Crypto + saldo total del hero), caché 5 min
+let _bncCache = { data: null, ts: 0 };
+async function fetchBinancePositions(force = false) {
+  if (!force && _bncCache.data && Date.now() - _bncCache.ts < 5 * 60 * 1000) return _bncCache.data;
+  const account = await fetchBinanceAccount();
+  const balances = account.balances
+    .map(b => ({ asset: b.asset, total: parseFloat(b.free) + parseFloat(b.locked), free: parseFloat(b.free) }))
+    .filter(b => b.total > 0);
+  const nonUsdt = balances.filter(b => b.asset !== 'USDT').map(b => b.asset);
+  const prices = await fetchBinancePrices(nonUsdt);
+  const positions = balances
+    .map(b => ({ ...b, price: prices[b.asset] || (b.asset === 'USDT' ? 1 : 0), valueUSD: b.total * (prices[b.asset] || (b.asset === 'USDT' ? 1 : 0)) }))
+    .filter(b => b.valueUSD >= 0.5)
+    .sort((a, b) => b.valueUSD - a.valueUSD);
+  const totalUSD = positions.reduce((s, p) => s + p.valueUSD, 0);
+  const usdt = balances.find(b => b.asset === 'USDT');
+  const data = { positions, totalUSD, disponible: usdt ? usdt.free : 0 };
+  _bncCache = { data, ts: Date.now() };
+  return data;
+}
+
+// Total Binance en USD para sumarlo al hero; silencioso si falla o no está configurado
+async function getBinanceTotal() {
+  const ok = localStorage.getItem('bnc_key') && localStorage.getItem('bnc_secret') && workerURL();
+  if (!ok) return 0;
+  try { return (await fetchBinancePositions()).totalUSD || 0; }
+  catch { return 0; }
+}
+
 async function renderCrypto() {
   const el = document.getElementById('bnc-content');
   const hasKeys = localStorage.getItem('bnc_key') && localStorage.getItem('bnc_secret');
@@ -1212,19 +1243,7 @@ async function renderCrypto() {
   }
   el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;padding:16px 0;text-align:center">Cargando...</div>';
   try {
-    const account = await fetchBinanceAccount();
-    const balances = account.balances
-      .map(b => ({ asset: b.asset, total: parseFloat(b.free)+parseFloat(b.locked), free: parseFloat(b.free) }))
-      .filter(b => b.total > 0);
-    const nonUsdt = balances.filter(b => b.asset !== 'USDT').map(b => b.asset);
-    const prices = await fetchBinancePrices(nonUsdt);
-    const positions = balances
-      .map(b => ({ ...b, price: prices[b.asset]||(b.asset==='USDT'?1:0), valueUSD: b.total*(prices[b.asset]||(b.asset==='USDT'?1:0)) }))
-      .filter(b => b.valueUSD >= 0.5)
-      .sort((a,b) => b.valueUSD - a.valueUSD);
-    const totalUSD = positions.reduce((s,p)=>s+p.valueUSD, 0);
-    const usdt = balances.find(b=>b.asset==='USDT');
-    const disponible = usdt ? usdt.free : 0;
+    const { positions, totalUSD, disponible } = await fetchBinancePositions(true);
 
     document.getElementById('bnc-total').textContent = usd(totalUSD);
     document.getElementById('bnc-disponible').textContent = usd(disponible);
@@ -1346,6 +1365,14 @@ async function renderHome(){
     const {resumen,posiciones} = await get('portafolio');
     lastPosiciones=posiciones;
     countUp(document.getElementById('h-total'), resumen.valor, usd);
+    // Sumar saldo Binance al total (async, no bloquea la carga)
+    getBinanceTotal().then(b=>{
+      const badge=document.getElementById('h-crypto');
+      if(b>0){
+        countUp(document.getElementById('h-total'), resumen.valor+b, usd);
+        if(badge){ badge.style.display='inline-flex'; badge.innerHTML=`Crypto&nbsp;<span class="num" style="color:#F0B90B">${usd(b)}</span>`; }
+      } else if(badge) badge.style.display='none';
+    });
     const gpEl=document.getElementById('h-gp');
     gpEl.textContent=(resumen.ganancia>=0?'+':'')+usd(resumen.ganancia);
     gpEl.className='meta-value '+cls(resumen.ganancia);
@@ -1542,6 +1569,14 @@ async function renderPortfolio(){
     const {resumen,posiciones}=await get('portafolio');
     lastPosiciones=posiciones;
     countUp(document.getElementById('p-total'), resumen.valor, usd);
+    // Sumar saldo Binance al total (async, no bloquea la carga)
+    getBinanceTotal().then(b=>{
+      const wrap=document.getElementById('p-crypto-wrap');
+      if(b>0){
+        countUp(document.getElementById('p-total'), resumen.valor+b, usd);
+        if(wrap){ wrap.style.display='flex'; document.getElementById('p-crypto').textContent=usd(b); }
+      } else if(wrap) wrap.style.display='none';
+    });
     const gpEl=document.getElementById('p-gp');
     gpEl.textContent=(resumen.ganancia>=0?'+':'')+usd(resumen.ganancia);
     gpEl.className='meta-value '+cls(resumen.ganancia);
@@ -2864,6 +2899,7 @@ function invalidatePortfolioCaches() {
   cache['historial']  = null;
   _heatmapHTML  = null;   // correlación 90d
   _pfClosesPromise = null; // precios 3m compartidos (sparklines/beta/heatmap)
+  _bncCache = { data: null, ts: 0 }; // saldo Binance
   _ideasData    = null;   // oportunidades + diversificación
   allNewsCache  = [];     // noticias por ticker
   activeNewsFilter = 'all';
