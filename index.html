@@ -3526,11 +3526,20 @@ Máximo 250 palabras. Directo y específico a estas posiciones.`;
     if (!pulling || busy) return;
     if (e.touches[0].clientY - startY > 90 && window.scrollY <= 0) {
       pulling = false; busy = true;
-      document.getElementById('ptr').classList.add('show');
-      invalidatePortfolioCaches();
-      cache['indices'] = null; cache['alertas'] = null;
-      if (curPage !== 'stock') navigate(curPage);
-      setTimeout(() => { document.getElementById('ptr').classList.remove('show'); busy = false; }, 1400);
+      const ptr = document.getElementById('ptr');
+      ptr.classList.add('show');
+      const done = () => { ptr.classList.remove('show'); busy = false; };
+      // Programar el ocultamiento ANTES de la lógica: así el pill nunca
+      // queda pegado en "Actualizando…" aunque navigate() lance un error.
+      setTimeout(done, 1400);
+      try {
+        invalidatePortfolioCaches();
+        cache['indices'] = null; cache['alertas'] = null;
+        if (curPage !== 'stock') navigate(curPage);
+      } catch (err) {
+        console.error('pull-to-refresh:', err);
+        done();
+      }
     }
   }, {passive: true});
   document.addEventListener('touchend', () => { pulling = false; }, {passive: true});
