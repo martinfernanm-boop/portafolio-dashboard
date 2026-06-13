@@ -114,8 +114,21 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 #page-stock.active{animation:sheetUp .24s cubic-bezier(.3,.9,.3,1)}
 
 /* POS ROW v2: logo + spark */
-.pos-logo{width:32px;height:32px;border-radius:50%;background:var(--surface3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;color:var(--muted);overflow:hidden;border:1px solid var(--border)}
-.pos-logo img{width:20px;height:20px;object-fit:contain}
+.pos-logo{width:34px;height:34px;border-radius:50%;background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;color:#1a2029;overflow:hidden;border:1px solid var(--border)}
+.pos-logo img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+
+/* AJUSTES */
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;border-bottom:1px solid var(--border)}
+.set-row:last-child{border-bottom:none}
+.set-label{font-size:.88rem;font-weight:500}
+.set-sub{font-size:.72rem;color:var(--muted);margin-top:2px;line-height:1.4}
+.switch{position:relative;display:inline-block;width:44px;height:26px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.switch .slider{position:absolute;inset:0;background:var(--surface3);border:1px solid var(--border);border-radius:99px;transition:.25s;cursor:pointer}
+.switch .slider::before{content:'';position:absolute;height:18px;width:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.25s}
+.switch input:checked + .slider{background:var(--blue);border-color:var(--blue)}
+.switch input:checked + .slider::before{transform:translateX(18px)}
+.toggle-pill .tpill-btn[aria-pressed="true"]{background:linear-gradient(135deg,#5b8cff,#3d6df2);color:#fff}
 .pos-tkr{font-weight:700;font-size:.86rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .spark{width:52px;height:22px;flex-shrink:0;margin:0 4px}
 @media(max-width:359px){.spark{display:none}}
@@ -428,6 +441,10 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
   <symbol id="i-sun-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2m0 14v2M5.2 5.2l1.4 1.4m10.8 10.8 1.4 1.4M3 12h2m14 0h2M5.2 18.8l1.4-1.4"/><path d="M15.5 8.5a5 5 0 1 0 0 7 4 4 0 0 1 0-7z"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
   <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4z"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></symbol>
 </svg>
 
 <div id="ptr" aria-hidden="true"><div class="spinner" style="width:13px;height:13px;border-width:2px"></div>Actualizando…</div>
@@ -435,8 +452,8 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 <!-- ====== HOME ====== -->
 <div id="page-home" class="page active">
   <div class="hero" style="position:relative">
-    <button id="theme-toggle" onclick="cycleTheme()" style="position:absolute;top:0;right:36px;background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;line-height:0" title="Tema: automático / claro / oscuro">
-      <svg class="ico" style="width:19px;height:19px"><use id="theme-icon-use" href="#i-sun-moon"/></svg>
+    <button onclick="navigate('ajustes')" style="position:absolute;top:0;right:36px;background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;line-height:0" title="Ajustes">
+      <svg class="ico" style="width:19px;height:19px"><use href="#i-settings"/></svg>
     </button>
     <button id="balance-toggle" onclick="toggleBalance()" style="position:absolute;top:0;right:0;background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;line-height:0" title="Ocultar/mostrar balance">
         <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -857,6 +874,74 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
   </div>
 </div>
 
+<!-- ====== AJUSTES ====== -->
+<div id="page-ajustes" class="page">
+  <div class="page-header">
+    <button class="back-btn" onclick="goBack()" style="display:inline-flex;align-items:center;gap:2px"><svg class="ico-sm ico"><use href="#i-back"/></svg> Atrás</button>
+    <span class="header-title">Ajustes</span>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Apariencia</div>
+    <div class="card" style="padding:4px 0">
+      <div class="set-row" style="flex-wrap:wrap">
+        <div style="flex:1;min-width:140px"><div class="set-label">Tema</div><div class="set-sub">Auto cambia según la hora del día</div></div>
+        <div class="toggle-pill" id="theme-seg" style="flex-shrink:0">
+          <button class="tpill-btn" onclick="setTheme('auto')" data-th="auto">Auto</button>
+          <button class="tpill-btn" onclick="setTheme('light')" data-th="light">Claro</button>
+          <button class="tpill-btn" onclick="setTheme('dark')" data-th="dark">Oscuro</button>
+        </div>
+      </div>
+      <div class="set-row">
+        <div><div class="set-label">Ocultar balances</div><div class="set-sub">Difumina los montos en pantalla</div></div>
+        <label class="switch"><input type="checkbox" id="set-balance" onchange="toggleBalance()"><span class="slider"></span></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Caja disponible</div>
+    <div class="card" style="padding:14px">
+      <div class="set-sub" style="margin-bottom:10px;line-height:1.6">Se ajusta sola al comprar (resta) y vender (suma). Edítala manualmente cuando ingreses o retires dinero del portafolio.</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:1.1rem;font-weight:600;color:var(--muted)">$</span>
+        <input id="set-caja-input" type="number" step="any" inputmode="decimal" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:10px 12px;font-size:.95rem;outline:none" placeholder="0.00">
+        <button class="btn btn-primary" id="set-caja-btn" onclick="guardarCaja()">Guardar</button>
+      </div>
+      <div id="set-caja-msg" style="font-size:.74rem;color:var(--green);margin-top:8px;display:none"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Integraciones</div>
+    <div class="card" style="padding:4px 0">
+      <button class="set-row" style="width:100%;background:none;border:none;cursor:pointer;text-align:left" onclick="openBncModal()">
+        <div><div class="set-label">Binance &amp; proxy</div><div class="set-sub" id="set-bnc-status">—</div></div>
+        <svg class="ico-sm ico" style="color:var(--faint)"><use href="#i-arrow"/></svg>
+      </button>
+      <div class="set-row">
+        <div><div class="set-label">Asistente Warren (IA)</div><div class="set-sub" id="set-ia-status">—</div></div>
+        <button class="btn" style="font-size:.72rem;padding:5px 12px" onclick="toggleChat()">Configurar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Datos</div>
+    <div class="card" style="padding:4px 0">
+      <button class="set-row" style="width:100%;background:none;border:none;cursor:pointer;text-align:left" onclick="forzarRefresh()">
+        <div><div class="set-label">Refrescar todo</div><div class="set-sub">Vacía la caché y recarga datos en vivo</div></div>
+        <svg class="ico-sm ico" style="color:var(--faint)"><use href="#i-refresh"/></svg>
+      </button>
+      <a class="set-row" href="https://docs.google.com/spreadsheets/d/1HYtxRLnhd0h_WfLkRDanTxNExJGimn6dDpE2uIMOdM8/edit" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">
+        <div><div class="set-label">Abrir Google Sheet</div><div class="set-sub">Editar posiciones directamente</div></div>
+        <svg class="ico-sm ico" style="color:var(--faint)"><use href="#i-external"/></svg>
+      </a>
+    </div>
+    <div style="text-align:center;font-size:.68rem;color:var(--faint);margin-top:12px">Mi Portafolio · datos vía Google Sheets</div>
+  </div>
+</div>
+
 <!-- ====== NAV ====== -->
 <nav class="nav-bar">
   <div class="nav-brand" style="display:none"><svg class="ico" style="color:var(--blue)"><use href="#i-logo"/></svg> <span>Mi Portafolio</span></div>
@@ -1059,8 +1144,9 @@ function navigate(page, extra) {
   if(page==='noticias')  renderNoticias();
   if(page==='ideas')     buildIdeas();
   if(page==='crypto')    { renderCrypto(); renderAlertas(); }
+  if(page==='ajustes')   renderAjustes();
 }
-function goBack(){ navigate(prevPage||'portfolio'); }
+function goBack(){ navigate(prevPage||'home'); }
 function openStock(ticker){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -1671,10 +1757,17 @@ const TICKER_DOMAINS = {
   AMZN:'amazon.com', GOOGL:'abc.xyz', META:'meta.com', AMD:'amd.com'
 };
 function logoHTML(ticker){
-  const dom=TICKER_DOMAINS[ticker];
   const ini=ticker.slice(0,3);
-  if(!dom) return `<div class="pos-logo">${ini}</div>`;
-  return `<div class="pos-logo"><img src="https://www.google.com/s2/favicons?domain=${dom}&sz=64" alt="" loading="lazy" onerror="this.parentNode.textContent='${ini}'"></div>`;
+  const dom=TICKER_DOMAINS[ticker];
+  const base=ticker.replace('.SN','');
+  // Cascada de fuentes de mayor a menor calidad; si todas fallan → iniciales.
+  // FMP da el logo de la empresa por ticker en alta resolución.
+  const fmpUrl=`https://financialmodelingprep.com/image-stock/${base}.png`;
+  const favUrl=dom?`https://www.google.com/s2/favicons?domain=${dom}&sz=128`:'';
+  const onErr=favUrl
+    ? `this.onerror=null;this.src='${favUrl}'`
+    : `this.onerror=null;this.parentNode.textContent='${ini}'`;
+  return `<div class="pos-logo"><img src="${fmpUrl}" alt="" loading="lazy" onerror="${onErr}"></div>`;
 }
 
 function renderPosRows(posiciones){
@@ -3429,11 +3522,66 @@ function applyTheme() {
   return changed;
 }
 
-function cycleTheme() {
-  const order = ['auto', 'light', 'dark'];
-  const next = order[(order.indexOf(getThemePref()) + 1) % 3];
-  localStorage.setItem('theme_pref', next);
-  if (applyTheme() && curPage !== 'stock') navigate(curPage); // re-render charts con colores del tema
+function setTheme(pref) {
+  localStorage.setItem('theme_pref', pref);
+  const changed = applyTheme();
+  markThemeSeg();
+  if (changed && curPage !== 'stock') navigate(curPage); // re-render charts con colores del tema
+}
+function markThemeSeg() {
+  const cur = getThemePref();
+  document.querySelectorAll('#theme-seg .tpill-btn').forEach(b =>
+    b.setAttribute('aria-pressed', b.dataset.th === cur ? 'true' : 'false'));
+}
+
+// ── PÁGINA AJUSTES ────────────────────────────────────────────
+async function renderAjustes() {
+  markThemeSeg();
+  document.getElementById('set-balance').checked = !!balanceHidden;
+
+  // Estado integraciones
+  const bnc = document.getElementById('set-bnc-status');
+  const hasBnc = localStorage.getItem('bnc_key') && localStorage.getItem('bnc_worker');
+  if (bnc) bnc.textContent = hasBnc ? 'Conectado' : 'Sin configurar';
+  const ia = document.getElementById('set-ia-status');
+  const k = (localStorage.getItem('gemini_api_key') || '');
+  if (ia) ia.textContent = k ? (k.startsWith('gsk_') ? 'Groq activo' : 'Gemini activo') : 'Sin configurar';
+
+  // Caja actual
+  try {
+    const { resumen } = await get('portafolio');
+    const inp = document.getElementById('set-caja-input');
+    if (inp && document.activeElement !== inp) inp.value = (resumen.caja || 0).toFixed(2);
+  } catch {}
+}
+
+async function guardarCaja() {
+  const inp = document.getElementById('set-caja-input');
+  const msg = document.getElementById('set-caja-msg');
+  const btn = document.getElementById('set-caja-btn');
+  const val = parseFloat(String(inp.value).replace(',', '.'));
+  if (isNaN(val) || val < 0) { alert('Ingresa un monto válido'); return; }
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    const res = await fetch(`${API}?action=set_caja&valor=${val}&_t=${Date.now()}`).then(r => r.json());
+    if (res.error) throw new Error(res.error);
+    cache['portafolio'] = null; cacheTs['portafolio'] = 0;
+    msg.textContent = 'Caja actualizada a ' + usd(val);
+    msg.style.display = 'block';
+    setTimeout(() => { msg.style.display = 'none'; }, 3000);
+  } catch (e) {
+    alert('Error: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar';
+  }
+}
+
+function forzarRefresh() {
+  invalidatePortfolioCaches();
+  cache['indices'] = null; cache['alertas'] = null;
+  Object.keys(cacheTs).forEach(k => cacheTs[k] = 0);
+  alert('Caché vaciada. Los datos se recargarán al abrir cada sección.');
+  navigate('home');
 }
 
 applyTheme();
