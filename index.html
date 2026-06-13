@@ -55,6 +55,7 @@ html[data-theme="light"]{
 html{-webkit-text-size-adjust:100%}
 body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(76px + env(safe-area-inset-bottom,0px) + 8px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);overflow-x:clip;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-feature-settings:'cv11','ss01';transition:background .35s,color .35s}
 body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:var(--aurora)}
+.statusbar-scrim{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--dock);backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);border-bottom:1px solid var(--dock-border);z-index:250;pointer-events:none}
 a{color:inherit;text-decoration:none}
 button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 ::selection{background:var(--blue-bg)}
@@ -414,6 +415,11 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 </style>
 </head>
 <body>
+
+<!-- Barra de estado esmerilada: cubre la safe-area superior (notch / isla
+     dinámica) en la PWA para que el contenido se deslice por debajo y la
+     hora/batería queden siempre legibles. En 0px de inset es invisible. -->
+<div class="statusbar-scrim" aria-hidden="true"></div>
 
 <!-- ====== ICON SPRITE ====== -->
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
@@ -1760,26 +1766,42 @@ const TICKER_DOMAINS = {
   QUINENCO:'quinenco.cl', RKLB:'rocketlabusa.com', AAPL:'apple.com',
   AMZN:'amazon.com', GOOGL:'abc.xyz', META:'meta.com', AMD:'amd.com'
 };
-// Tickers cuyo logo en FMP es blanco/transparente (invisible sobre fondo
-// claro): saltan FMP y usan el favicon a color directamente.
-const LOGO_SKIP_FMP = new Set(['UNH']);
+// Tickers cuyo logo en FMP sale en blanco/transparente o es solo wordmark
+// (invisible en un círculo): se saltan FMP y arrancan con parqet, que da un
+// símbolo a color. UNH = símbolo blanco; BLK = wordmark negro ilegible.
+const LOGO_SKIP_FMP = new Set(['UNH','BLK']);
+
+// Construye la cascada de fuentes (mayor a menor calidad) para un ticker.
+// FMP image-stock = alta resolución (250px) para la mayoría.
+// parqet = símbolo a color por ticker (cubre UNH/BLK donde FMP falla).
+// favicon Google sz=64 = respaldo. Si todo falla → iniciales.
+function logoSources(ticker){
+  const dom=TICKER_DOMAINS[ticker];
+  const base=ticker.replace('.SN','');
+  const fmp=`https://financialmodelingprep.com/image-stock/${base}.png`;
+  const parqet=`https://assets.parqet.com/logos/symbol/${base}?format=png`;
+  const fav=dom?`https://www.google.com/s2/favicons?domain=${dom}&sz=64`:'';
+  const list=LOGO_SKIP_FMP.has(ticker)?[parqet,fav]:[fmp,parqet,fav];
+  return list.filter(Boolean);
+}
+
+// Avanza la imagen al siguiente origen de la cascada; al agotarse, iniciales.
+function nextLogo(img){
+  try{
+    const srcs=JSON.parse(img.dataset.srcs);
+    const i=(+img.dataset.i)+1;
+    if(i<srcs.length){ img.dataset.i=i; img.src=srcs[i]; return; }
+  }catch(e){}
+  img.onerror=null;
+  img.replaceWith(document.createTextNode(img.dataset.ini||''));
+}
 
 function logoHTML(ticker){
   const ini=ticker.slice(0,3);
-  const dom=TICKER_DOMAINS[ticker];
-  const base=ticker.replace('.SN','');
-  if(LOGO_SKIP_FMP.has(ticker) && dom){
-    return `<div class="pos-logo"><img src="https://www.google.com/s2/favicons?domain=${dom}&sz=128" alt="" loading="lazy" onerror="this.onerror=null;this.replaceWith(document.createTextNode('${ini}'))"></div>`;
-  }
-  // Cascada de fuentes de mayor a menor calidad; si todas fallan → iniciales.
-  // FMP da el logo de la empresa por ticker en alta resolución.
-  const fmpUrl=`https://financialmodelingprep.com/image-stock/${base}.png`;
-  const favUrl=dom?`https://www.google.com/s2/favicons?domain=${dom}&sz=128`:'';
-  const toIni=`this.onerror=null;this.replaceWith(document.createTextNode('${ini}'))`;
-  const onErr=favUrl
-    ? `this.onerror=function(){${toIni}};this.src='${favUrl}'`
-    : toIni;
-  return `<div class="pos-logo"><img src="${fmpUrl}" alt="" loading="lazy" onerror="${onErr}"></div>`;
+  const srcs=logoSources(ticker);
+  if(!srcs.length) return `<div class="pos-logo">${ini}</div>`;
+  const data=JSON.stringify(srcs).replace(/"/g,'&quot;');
+  return `<div class="pos-logo"><img src="${srcs[0]}" alt="" loading="lazy" data-srcs="${data}" data-i="0" data-ini="${ini}" onerror="nextLogo(this)"></div>`;
 }
 
 function renderPosRows(posiciones){
