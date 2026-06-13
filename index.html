@@ -296,8 +296,9 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .nf-chip.active{background:var(--blue);border-color:var(--blue);color:#fff}
 
 /* ── CHAT FAB ── */
-#chat-fab{position:fixed;bottom:calc(86px + env(safe-area-inset-bottom,0px));right:16px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#5b8cff,#7c5bff);border:none;cursor:pointer;box-shadow:0 8px 28px rgba(91,140,255,.45),var(--glass-hi);z-index:310;transition:transform .15s;display:flex;align-items:center;justify-content:center}
+#chat-fab{position:fixed;bottom:calc(86px + env(safe-area-inset-bottom,0px));right:16px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#5b8cff,#7c5bff);border:none;cursor:pointer;box-shadow:0 8px 28px rgba(91,140,255,.45),var(--glass-hi);z-index:310;transition:transform .28s cubic-bezier(.4,0,.2,1),opacity .28s ease;display:flex;align-items:center;justify-content:center}
 #chat-fab:hover{transform:scale(1.08)}
+#chat-fab.fab-hidden{transform:translateX(140%);opacity:0;pointer-events:none}
 #chat-fab.open{display:none}
 
 /* ── CHAT PANEL ── */
@@ -3533,6 +3534,24 @@ Máximo 250 palabras. Directo y específico a estas posiciones.`;
     }
   }, {passive: true});
   document.addEventListener('touchend', () => { pulling = false; }, {passive: true});
+})();
+
+// ── FAB DE CHAT: ocultar al bajar, mostrar al subir ───────────
+// Evita que el botón tape los números de las posiciones al leer la lista.
+(function(){
+  const fab = document.getElementById('chat-fab');
+  if (!fab) return;
+  let lastY = window.scrollY, ticking = false;
+  window.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const y = window.scrollY;
+      if (y > lastY + 8 && y > 120) fab.classList.add('fab-hidden');
+      else if (y < lastY - 8) fab.classList.remove('fab-hidden');
+      lastY = y; ticking = false;
+    });
+  }, {passive: true});
 })();
 
 // ── TEMA CLARO/OSCURO ─────────────────────────────────────────
