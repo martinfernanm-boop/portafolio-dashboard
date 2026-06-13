@@ -816,7 +816,9 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
         <input id="jr-precio" type="number" step="any" placeholder="120.50" autocomplete="off">
       </div>
       <div style="flex:1">
-        <label>Cantidad</label>
+        <label style="display:flex;justify-content:space-between;align-items:center">Cantidad
+          <button type="button" onclick="venderTodo()" style="background:var(--red-bg);color:var(--red);border:none;border-radius:6px;padding:2px 8px;font-size:.66rem;font-weight:700;cursor:pointer">Vender todo</button>
+        </label>
         <input id="jr-cantidad" type="number" step="any" placeholder="0.5" autocomplete="off">
       </div>
     </div>
@@ -2997,6 +2999,21 @@ function closeJournalModal() {
   _jrEditFila = null;
   ['jr-ticker','jr-precio','jr-cantidad','jr-motivo'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('journal-modal-overlay').style.display = 'none';
+}
+
+// Rellena el modal con la cantidad EXACTA de la posición (cierre total sin
+// pelearse con los decimales)
+function venderTodo() {
+  const ticker = document.getElementById('jr-ticker').value.trim().toUpperCase();
+  if (!ticker) { alert('Primero escribe el ticker'); return; }
+  const posiciones = cache['portafolio']?.posiciones || lastPosiciones || [];
+  const p = posiciones.find(x => x.ticker === ticker);
+  if (!p) { alert(`${ticker} no está en tu portafolio`); return; }
+  if (!(parseFloat(p.cantidad) > 0)) { alert(`${ticker} no tiene cantidad registrada (revisa la fila en el Sheet)`); return; }
+  document.getElementById('jr-tipo').value = 'venta';
+  document.getElementById('jr-cantidad').value = p.cantidad;
+  const precioEl = document.getElementById('jr-precio');
+  if (!precioEl.value && p.precioActual) precioEl.value = parseFloat(p.precioActual).toFixed(2);
 }
 
 function editJournal(fila) {
