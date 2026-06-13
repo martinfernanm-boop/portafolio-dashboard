@@ -115,7 +115,7 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 
 /* POS ROW v2: logo + spark */
 .pos-logo{width:34px;height:34px;border-radius:50%;background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;color:#1a2029;overflow:hidden;border:1px solid var(--border)}
-.pos-logo img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.pos-logo img{width:100%;height:100%;object-fit:contain;padding:4px;border-radius:50%}
 
 /* AJUSTES */
 .set-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;border-bottom:1px solid var(--border)}
@@ -1676,7 +1676,7 @@ async function renderPortfolio(){
     retEl.className='meta-value '+cls(resumen.retorno);
     renderPosRows(posiciones);
     drawSparklines(posiciones);
-    renderPerfPanel(resumen.valor);
+    renderPerfPanel((resumen.valor||0) + (resumen.caja||0));
     calcPortfolioBeta(posiciones);
     renderJournal();
     buildHeatmap('heatmap-pf-container');
@@ -1684,6 +1684,10 @@ async function renderPortfolio(){
 }
 
 // ── RENDIMIENTO POR PERÍODO ───────────────────────────────────
+// valorActual = patrimonio total (posiciones + caja). Comparar patrimonio
+// evita que una venta —que solo mueve dinero de posiciones a caja— se vea
+// como pérdida. El histórico era casi 100% posiciones (caja ~$0), así que
+// la comparación es consistente.
 async function renderPerfPanel(valorActual){
   const grid=document.getElementById('perf-grid');
   if(!grid) return;
@@ -1756,17 +1760,25 @@ const TICKER_DOMAINS = {
   QUINENCO:'quinenco.cl', RKLB:'rocketlabusa.com', AAPL:'apple.com',
   AMZN:'amazon.com', GOOGL:'abc.xyz', META:'meta.com', AMD:'amd.com'
 };
+// Tickers cuyo logo en FMP es blanco/transparente (invisible sobre fondo
+// claro): saltan FMP y usan el favicon a color directamente.
+const LOGO_SKIP_FMP = new Set(['UNH']);
+
 function logoHTML(ticker){
   const ini=ticker.slice(0,3);
   const dom=TICKER_DOMAINS[ticker];
   const base=ticker.replace('.SN','');
+  if(LOGO_SKIP_FMP.has(ticker) && dom){
+    return `<div class="pos-logo"><img src="https://www.google.com/s2/favicons?domain=${dom}&sz=128" alt="" loading="lazy" onerror="this.onerror=null;this.replaceWith(document.createTextNode('${ini}'))"></div>`;
+  }
   // Cascada de fuentes de mayor a menor calidad; si todas fallan → iniciales.
   // FMP da el logo de la empresa por ticker en alta resolución.
   const fmpUrl=`https://financialmodelingprep.com/image-stock/${base}.png`;
   const favUrl=dom?`https://www.google.com/s2/favicons?domain=${dom}&sz=128`:'';
+  const toIni=`this.onerror=null;this.replaceWith(document.createTextNode('${ini}'))`;
   const onErr=favUrl
-    ? `this.onerror=null;this.src='${favUrl}'`
-    : `this.onerror=null;this.parentNode.textContent='${ini}'`;
+    ? `this.onerror=function(){${toIni}};this.src='${favUrl}'`
+    : toIni;
   return `<div class="pos-logo"><img src="${fmpUrl}" alt="" loading="lazy" onerror="${onErr}"></div>`;
 }
 
