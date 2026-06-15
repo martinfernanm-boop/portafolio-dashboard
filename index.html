@@ -3627,7 +3627,13 @@ async function guardarCaja() {
   try {
     const res = await fetch(`${API}?action=set_caja&valor=${val}&_t=${Date.now()}`).then(r => r.json());
     if (res.error) throw new Error(res.error);
-    cache['portafolio'] = null; cacheTs['portafolio'] = 0;
+    // Invalidar TODO lo que depende de la caja y traer datos frescos saltando
+    // el caché del worker (force=true); luego re-renderizar Home y Portfolio
+    // para que el total/caja se actualicen sin tener que recargar la app.
+    invalidatePortfolioCaches();
+    await get('portafolio', true);
+    try { renderHome(); } catch (e) {}
+    try { if (curPage === 'portfolio') renderPortfolio(); } catch (e) {}
     msg.textContent = 'Caja actualizada a ' + usd(val);
     msg.style.display = 'block';
     setTimeout(() => { msg.style.display = 'none'; }, 3000);
