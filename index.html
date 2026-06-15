@@ -1706,7 +1706,7 @@ async function renderPortfolio(){
     retEl.className='meta-value '+cls(resumen.retorno);
     renderPosRows(posiciones);
     drawSparklines(posiciones);
-    renderPerfPanel((resumen.valor||0) + (resumen.caja||0), posiciones);
+    renderPerfPanel((resumen.valor||0) + (resumen.caja||0), posiciones, resumen);
     calcPortfolioBeta(posiciones);
     renderJournal();
     buildHeatmap('heatmap-pf-container');
@@ -1718,7 +1718,7 @@ async function renderPortfolio(){
 // evita que una venta —que solo mueve dinero de posiciones a caja— se vea
 // como pérdida. El histórico era casi 100% posiciones (caja ~$0), así que
 // la comparación es consistente.
-async function renderPerfPanel(valorActual, posiciones){
+async function renderPerfPanel(valorActual, posiciones, resumen){
   const grid=document.getElementById('perf-grid');
   if(!grid) return;
   let hist=[];
@@ -1752,11 +1752,18 @@ async function renderPerfPanel(valorActual, posiciones){
   const refAt=ts=>{ let r=null; for(const e of entries){ if(e.ts<=ts) r=e; else break; } return r; };
 
   const inicioAno=new Date(new Date().getFullYear(),0,1).getTime();
+  // YTD: si NO hay snapshot anterior a este año (el histórico empieza después
+  // del 1-ene), no se puede calcular un "year-to-date" real. En vez de caer en
+  // silencio a la primera fila (daba un número raro distinto al G/P), usamos el
+  // retorno TOTAL real (= ganancia/retorno del hero), que para un portafolio
+  // armado todo este año ES la ganancia del año. Así YTD coincide con el G/P.
+  const refYTDreal=refAt(inicioAno-1);
+  const ytdTotal=(!refYTDreal && resumen) ? {dif:(resumen.ganancia||0), pct:(resumen.retorno||0)*100} : null;
   const periodos=[
     {label:'Hoy',    difHoy:hoyUSD, ref:refAt(hoy0.getTime()-1)},
     {label:'Semana', ref:refAt(now-7*864e5)},
     {label:'Mes',    ref:refAt(now-30*864e5)},
-    {label:'YTD',    ref:refAt(inicioAno-1)||(entries[0].ts>=inicioAno?entries[0]:null)},
+    {label:'YTD',    ref:refYTDreal, total:ytdTotal},
     {label:'1 año',  ref:(now-entries[0].ts>=300*864e5)?refAt(now-365*864e5):null},
   ];
 
@@ -1765,6 +1772,9 @@ async function renderPerfPanel(valorActual, posiciones){
     if(p.label==='Hoy' && p.difHoy!=null){
       dif=p.difHoy;
       pct=dif/((valorActual-dif)||1)*100;   // % relativo al patrimonio de ayer
+    } else if(p.label==='YTD' && p.total){
+      dif=p.total.dif;                       // retorno total (= G/P) cuando no hay 1-ene
+      pct=p.total.pct;
     } else {
       if(!p.ref) return `<div class="perf-cell"><div class="perf-label">${p.label}</div><div class="perf-pct" style="color:var(--faint)">—</div><div class="perf-usd">sin datos</div></div>`;
       dif=valorActual-p.ref.valor;
