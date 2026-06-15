@@ -1526,9 +1526,32 @@ function buildDonut(pos){
 // evoMode: 'port' | 'sp' | 'ndx' · evoRangeN: días (0 = todo)
 let evoMode='port', evoRangeN=90, evoFull=null, evoSlice=null, evoBenchData={sp500:null,ixic:null}, _evoBenchFull={sp500:null,ixic:null};
 
+// Fecha de corte por rango, usando meses/año CALENDARIO reales (1M = mismo día
+// del mes anterior, no 30 días) y desde medianoche para incluir el día límite.
+function evoCutoff(n){
+  const d=new Date(); d.setHours(0,0,0,0);
+  if(n===30)       d.setMonth(d.getMonth()-1);
+  else if(n===90)  d.setMonth(d.getMonth()-3);
+  else if(n===365) d.setFullYear(d.getFullYear()-1);
+  else             d.setDate(d.getDate()-n);   // 1S (7) y cualquier otro: días
+  return d.getTime();
+}
+
 function applyEvoRange(){
   if(!evoFull) return;
-  evoSlice = evoRangeN>0 ? evoFull.slice(-evoRangeN) : evoFull;
+  // Recortar por DÍAS reales, no por cantidad de filas: el histórico tiene ~1
+  // fila por día hábil (sin fines de semana), así que slice(-30) mostraría ~6
+  // semanas. Contamos cuántas filas caen dentro del rango (histórico ordenado
+  // ascendente por fecha → son las últimas contiguas) y recortamos por eso.
+  let sliceCount;
+  if(evoRangeN>0){
+    const cutoff = evoCutoff(evoRangeN);
+    sliceCount = evoFull.filter(h=>{ const t=new Date(h.fecha).getTime(); return !isNaN(t) && t>=cutoff; }).length;
+    if(sliceCount<2) sliceCount=Math.min(2,evoFull.length); // mínimo para dibujar (evita slice(-0)=todo)
+  } else {
+    sliceCount = evoFull.length;
+  }
+  evoSlice = evoFull.slice(-sliceCount);
   const len = evoSlice.length;
   for(const key of ['sp500','ixic']){
     const m=_evoBenchFull[key];
