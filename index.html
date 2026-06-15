@@ -1683,7 +1683,7 @@ async function renderPortfolio(){
     retEl.className='meta-value '+cls(resumen.retorno);
     renderPosRows(posiciones);
     drawSparklines(posiciones);
-    renderPerfPanel((resumen.valor||0) + (resumen.caja||0));
+    renderPerfPanel((resumen.valor||0) + (resumen.caja||0), posiciones);
     calcPortfolioBeta(posiciones);
     renderJournal();
     buildHeatmap('heatmap-pf-container');
@@ -1695,7 +1695,7 @@ async function renderPortfolio(){
 // evita que una venta —que solo mueve dinero de posiciones a caja— se vea
 // como pérdida. El histórico era casi 100% posiciones (caja ~$0), así que
 // la comparación es consistente.
-async function renderPerfPanel(valorActual){
+async function renderPerfPanel(valorActual, posiciones){
   const grid=document.getElementById('perf-grid');
   if(!grid) return;
   let hist=[];
@@ -1708,6 +1708,21 @@ async function renderPerfPanel(valorActual){
     .sort((a,b)=>a.ts-b.ts);
   if(!entries.length) return;
 
+  // "Hoy" se calcula con el varDia REAL de cada posición (dato exacto del
+  // bróker), NO con la diferencia de snapshots: estos dependen del horario
+  // de captura y se ensucian los fines de semana (un snapshot de sábado
+  // arrastra el cierre del viernes y desvirtúa el cambio del día).
+  // díf hoy = Σ (valorUSD − valorUSD/(1+varDia)). Fallback a snapshot si no hay datos.
+  let hoyUSD=null;
+  if(Array.isArray(posiciones) && posiciones.length){
+    let s=0, ok=false;
+    for(const p of posiciones){
+      const vd=parseFloat(p.varDia), val=parseFloat(p.valorUSD);
+      if(!isNaN(vd) && !isNaN(val) && (1+vd)!==0){ s += val - val/(1+vd); ok=true; }
+    }
+    if(ok) hoyUSD=s;
+  }
+
   const now=Date.now();
   const hoy0=new Date(); hoy0.setHours(0,0,0,0);
   // Valor de referencia: la última entrada anterior o igual al timestamp pedido
@@ -1715,7 +1730,7 @@ async function renderPerfPanel(valorActual){
 
   const inicioAno=new Date(new Date().getFullYear(),0,1).getTime();
   const periodos=[
-    {label:'Hoy',    ref:refAt(hoy0.getTime()-1)},
+    {label:'Hoy',    difHoy:hoyUSD, ref:refAt(hoy0.getTime()-1)},
     {label:'Semana', ref:refAt(now-7*864e5)},
     {label:'Mes',    ref:refAt(now-30*864e5)},
     {label:'YTD',    ref:refAt(inicioAno-1)||(entries[0].ts>=inicioAno?entries[0]:null)},
@@ -1723,9 +1738,15 @@ async function renderPerfPanel(valorActual){
   ];
 
   grid.innerHTML=periodos.map(p=>{
-    if(!p.ref) return `<div class="perf-cell"><div class="perf-label">${p.label}</div><div class="perf-pct" style="color:var(--faint)">—</div><div class="perf-usd">sin datos</div></div>`;
-    const dif=valorActual-p.ref.valor;
-    const pct=dif/p.ref.valor*100;
+    let dif, pct;
+    if(p.label==='Hoy' && p.difHoy!=null){
+      dif=p.difHoy;
+      pct=dif/((valorActual-dif)||1)*100;   // % relativo al patrimonio de ayer
+    } else {
+      if(!p.ref) return `<div class="perf-cell"><div class="perf-label">${p.label}</div><div class="perf-pct" style="color:var(--faint)">—</div><div class="perf-usd">sin datos</div></div>`;
+      dif=valorActual-p.ref.valor;
+      pct=dif/p.ref.valor*100;
+    }
     const c=dif>=0?'var(--green)':'var(--red)';
     return `<div class="perf-cell">
       <div class="perf-label">${p.label}</div>
