@@ -459,6 +459,10 @@ button,.pos-row,.set-row,.platform-btn,.idx-row,.idea-card{-webkit-touch-callout
 :focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:8px}
 button:focus:not(:focus-visible){outline:none}
 
+/* Sparklines: se "dibujan" al renderizar (pathLength=1 normaliza el largo) */
+@keyframes sparkDraw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.spark polyline{stroke-dasharray:1;stroke-dashoffset:1;animation:sparkDraw .75s cubic-bezier(.45,0,.2,1) forwards}
+
 /* Respeta a quien prefiere menos movimiento */
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
@@ -1563,7 +1567,9 @@ function buildDonut(pos){
   donutChart=new Chart(ctx,{
     type:'doughnut',
     data:{labels,datasets:[{data,backgroundColor:bgColors,borderColor:getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#0a0e17',borderWidth:2,hoverOffset:8}]},
-    options:{responsive:true,cutout:'62%',plugins:{
+    options:{responsive:true,cutout:'62%',
+      animation:{animateScale:true,animateRotate:true,duration:850,easing:'easeOutQuart'},
+      plugins:{
       legend:{display:true,position:'bottom',labels:{color:getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||'#e6edf3',font:{size:11},boxWidth:12,padding:10}},
       tooltip:{callbacks:{label:c=>{
         const total=c.dataset.data.reduce((a,b)=>a+b,0);
@@ -1954,7 +1960,7 @@ async function drawSparklines(posiciones){
       const pts=arr.map((v,i)=>`${(i/(arr.length-1)*50+1).toFixed(1)},${(19-((v-min)/span*16)+1.5).toFixed(1)}`).join(' ');
       const up=arr[arr.length-1]>=arr[0];
       const color=up?'var(--green)':'var(--red)';
-      svg.innerHTML=`<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>`;
+      svg.innerHTML=`<polyline points="${pts}" pathLength="1" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>`;
     });
   } catch {}
 }
