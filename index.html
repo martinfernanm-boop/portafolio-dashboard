@@ -935,11 +935,11 @@ button:focus:not(:focus-visible){outline:none}
   </div>
 </div>
 
-<!-- ====== MODAL APORTE ====== -->
+<!-- ====== MODAL MOVIMIENTO (aporte / retiro) ====== -->
 <div id="aporte-modal-overlay" class="bnc-modal-overlay" style="display:none" onclick="if(event.target===this)closeAporteModal()">
   <div class="bnc-modal">
-    <h3 style="display:flex;align-items:center;gap:8px"><svg class="ico-sm ico" style="color:var(--green)"><use href="#i-wallet"/></svg> Registrar aporte</h3>
-    <p>Plata externa que ingresas al portafolio (no ganancias). Se marca en el gráfico para explicar los saltos del patrimonio.</p>
+    <h3 id="mov-title" style="display:flex;align-items:center;gap:8px"><svg class="ico-sm ico" id="mov-icon" style="color:var(--green)"><use href="#i-wallet"/></svg> Registrar aporte</h3>
+    <p id="mov-desc">Plata externa que ingresas al portafolio (no ganancias). Se marca en el gráfico para explicar los saltos del patrimonio.</p>
     <label>Monto (USD)</label>
     <input id="aporte-monto" type="number" step="any" inputmode="decimal" placeholder="0.00" autocomplete="off">
     <label>Fecha</label>
@@ -947,12 +947,12 @@ button:focus:not(:focus-visible){outline:none}
     <label>Nota (opcional)</label>
     <input id="aporte-nota" type="text" placeholder="Ej: depósito mensual" autocomplete="off">
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:12px">
-      <input id="aporte-sumar-caja" type="checkbox" checked style="width:auto;margin:0"> Sumar el monto a la caja
+      <input id="aporte-sumar-caja" type="checkbox" checked style="width:auto;margin:0"> <span id="mov-caja-label">Sumar el monto a la caja</span>
     </label>
     <div id="aporte-msg" style="font-size:.74rem;color:var(--green);margin-bottom:8px;display:none"></div>
     <div class="bnc-modal-btns">
       <button class="bnc-cancel-btn" onclick="closeAporteModal()">Cancelar</button>
-      <button class="bnc-save-btn" id="aporte-save-btn" onclick="guardarAporte()">Registrar</button>
+      <button class="bnc-save-btn" id="aporte-save-btn" onclick="guardarMov()">Registrar</button>
     </div>
   </div>
 </div>
@@ -992,10 +992,15 @@ button:focus:not(:focus-visible){outline:none}
         <button class="btn btn-primary" id="set-caja-btn" onclick="guardarCaja()">Guardar</button>
       </div>
       <div id="set-caja-msg" style="font-size:.74rem;color:var(--green);margin-top:8px;display:none"></div>
-      <button class="btn" style="width:100%;justify-content:center;margin-top:12px;background:var(--surface2);color:var(--text)" onclick="openAporteModal()">
-        <svg class="ico-sm ico" style="width:15px;height:15px;color:var(--green)"><use href="#i-wallet"/></svg> Registrar aporte
-      </button>
-      <div class="set-sub" style="margin-top:8px;line-height:1.5;font-size:.7rem">Registra la <b>plata externa</b> que ingresas (no las ganancias). Queda marcada en el gráfico para entender los saltos del patrimonio.</div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn" style="flex:1;justify-content:center;background:var(--surface2);color:var(--text)" onclick="openMovModal('aporte')">
+          <svg class="ico-sm ico" style="width:15px;height:15px;color:var(--green)"><use href="#i-wallet"/></svg> Aporte
+        </button>
+        <button class="btn" style="flex:1;justify-content:center;background:var(--surface2);color:var(--text)" onclick="openMovModal('retiro')">
+          <svg class="ico-sm ico" style="width:15px;height:15px;color:var(--orange)"><use href="#i-wallet"/></svg> Retiro
+        </button>
+      </div>
+      <div class="set-sub" style="margin-top:8px;line-height:1.5;font-size:.7rem">Registra la <b>plata externa</b> que ingresas o retiras (no las ganancias). Queda marcada en el gráfico para entender los saltos del patrimonio.</div>
     </div>
   </div>
 
@@ -1697,17 +1702,18 @@ function renderEvoChart(){
     // Modo default: valor USD real
     const grad=ctx.createLinearGradient(0,0,0,150);
     grad.addColorStop(0,'rgba(88,166,255,.3)'); grad.addColorStop(1,'rgba(88,166,255,0)');
-    // Marcas de aportes: punto verde sobre la línea el día del aporte
-    const aporteMontos=evoSlice.map(h=>{ const day=new Date(h.fecha).toDateString(); const ap=(aportesData||[]).find(a=>new Date(a.fecha).toDateString()===day); return ap?ap.monto:null; });
-    const aporteMarks=evoSlice.map((h,i)=>aporteMontos[i]!=null?h.valor:null);
-    const hasAportes=aporteMarks.some(v=>v!=null);
+    // Marcas de movimientos: punto el día del aporte (verde) o retiro (naranja)
+    const movMontos=evoSlice.map(h=>{ const day=new Date(h.fecha).toDateString(); const mv=(aportesData||[]).find(a=>new Date(a.fecha).toDateString()===day); return mv?mv.monto:null; });
+    const movMarks=evoSlice.map((h,i)=>movMontos[i]!=null?h.valor:null);
+    const movColors=movMontos.map(m=>m==null?'transparent':(m>=0?'#3ddc8e':'#fb923c'));
+    const hasMov=movMarks.some(v=>v!=null);
     const datasets=[{data:evoSlice.map(h=>h.valor),borderColor:'#58a6ff',borderWidth:2,fill:true,backgroundColor:grad,pointRadius:0,tension:.3,order:2}];
-    if(hasAportes) datasets.push({data:aporteMarks,type:'line',showLine:false,pointRadius:5,pointHoverRadius:8,pointBackgroundColor:'#3ddc8e',pointBorderColor:'#fff',pointBorderWidth:2,order:1});
+    if(hasMov) datasets.push({data:movMarks,type:'line',showLine:false,pointRadius:5,pointHoverRadius:8,pointBackgroundColor:movColors,pointBorderColor:'#fff',pointBorderWidth:2,order:1});
     evoChart=new Chart(ctx,{type:'line',data:{labels,datasets},
       options:{responsive:true,interaction:{intersect:false,mode:'index'},
         plugins:{legend:{display:false},tooltip:{
-          filter:item=>!(item.datasetIndex===1 && aporteMontos[item.dataIndex]==null),
-          callbacks:{title:c=>c[0].label,label:c=>c.datasetIndex===1?'  ◆ Aporte +'+usd(aporteMontos[c.dataIndex]):' '+usd(c.raw)}}},
+          filter:item=>!(item.datasetIndex===1 && movMontos[item.dataIndex]==null),
+          callbacks:{title:c=>c[0].label,label:c=>{ if(c.datasetIndex!==1) return ' '+usd(c.raw); const m=movMontos[c.dataIndex]; return m>=0?'  ◆ Aporte +'+usd(m):'  ◆ Retiro −'+usd(Math.abs(m)); }}}},
         scales:{x:{ticks:{color:'#7e8898',maxTicksLimit:6,font:{size:10}},grid:{color:'rgba(128,142,165,.14)'}},
                 y:{ticks:{color:'#7e8898',font:{size:10},callback:v=>'$'+fmt(v,0)},grid:{color:'rgba(128,142,165,.14)'}}}}});
   } else {
@@ -3793,13 +3799,22 @@ async function guardarCaja() {
   }
 }
 
-// ── APORTES ───────────────────────────────────────────────────
+// ── MOVIMIENTOS DE EFECTIVO (aporte / retiro) ─────────────────
 let aportesData = [];
-function openAporteModal() {
+let _movTipo = 'aporte';
+function openMovModal(tipo) {
+  _movTipo = (tipo === 'retiro') ? 'retiro' : 'aporte';
+  const esRetiro = _movTipo === 'retiro';
+  document.getElementById('mov-title').innerHTML =
+    `<svg class="ico-sm ico" style="color:var(--${esRetiro ? 'orange' : 'green'})"><use href="#i-wallet"/></svg> ${esRetiro ? 'Retirar fondos' : 'Registrar aporte'}`;
+  document.getElementById('mov-desc').textContent = esRetiro
+    ? 'Plata externa que sacas del portafolio (no pérdidas). Se marca en el gráfico para explicar las caídas del patrimonio.'
+    : 'Plata externa que ingresas al portafolio (no ganancias). Se marca en el gráfico para explicar los saltos del patrimonio.';
+  document.getElementById('mov-caja-label').textContent = esRetiro ? 'Restar el monto de la caja' : 'Sumar el monto a la caja';
+  document.getElementById('aporte-save-btn').textContent = esRetiro ? 'Retirar' : 'Registrar';
   document.getElementById('aporte-monto').value = '';
   document.getElementById('aporte-nota').value = '';
   document.getElementById('aporte-sumar-caja').checked = true;
-  // fecha por defecto = hoy (zona local)
   const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   document.getElementById('aporte-fecha').value = d.toISOString().slice(0, 10);
   document.getElementById('aporte-msg').style.display = 'none';
@@ -3807,32 +3822,32 @@ function openAporteModal() {
 }
 function closeAporteModal() { document.getElementById('aporte-modal-overlay').style.display = 'none'; }
 
-async function guardarAporte() {
+async function guardarMov() {
+  const esRetiro = _movTipo === 'retiro';
   const monto = parseFloat(String(document.getElementById('aporte-monto').value).replace(',', '.'));
   const fecha = document.getElementById('aporte-fecha').value;
   const nota = document.getElementById('aporte-nota').value || '';
   const sumar = document.getElementById('aporte-sumar-caja').checked;
   const btn = document.getElementById('aporte-save-btn');
   if (isNaN(monto) || monto <= 0) { alert('Ingresa un monto válido'); return; }
-  btn.disabled = true; btn.textContent = 'Registrando…';
+  btn.disabled = true; btn.textContent = esRetiro ? 'Retirando…' : 'Registrando…';
   try {
-    const url = `${API}?action=aporte_add&monto=${monto}&fecha=${encodeURIComponent(fecha)}&nota=${encodeURIComponent(nota)}&sumarCaja=${sumar}&_t=${Date.now()}`;
+    const url = `${API}?action=aporte_add&tipo=${_movTipo}&monto=${monto}&fecha=${encodeURIComponent(fecha)}&nota=${encodeURIComponent(nota)}&sumarCaja=${sumar}&_t=${Date.now()}`;
     const res = await fetch(url).then(r => r.json());
     if (res.error) throw new Error(res.error);
-    // refrescar datos (la caja pudo cambiar) y el gráfico (marca nueva)
     invalidatePortfolioCaches();
     cache['aportes'] = null;
     await get('portafolio', true);
     try { renderHome(); } catch (e) {}
     try { if (curPage === 'portfolio') renderPortfolio(); } catch (e) {}
     const msg = document.getElementById('aporte-msg');
-    msg.textContent = 'Aporte de ' + usd(monto) + ' registrado.';
+    msg.textContent = (esRetiro ? 'Retiro de ' : 'Aporte de ') + usd(monto) + ' registrado.';
     msg.style.display = 'block';
     setTimeout(closeAporteModal, 1200);
   } catch (e) {
     alert('Error: ' + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = 'Registrar';
+    btn.disabled = false; btn.textContent = esRetiro ? 'Retirar' : 'Registrar';
   }
 }
 
