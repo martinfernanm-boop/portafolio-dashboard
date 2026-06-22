@@ -3043,6 +3043,70 @@ function _ideaCard(a) {
   </div>`;
 }
 
+// Plan de entrada calculado desde el historial de precios: zona de entrada,
+// stop-loss y objetivo. Niveles técnicos referenciales (no asesoría).
+function _ideaEntryPlan(a) {
+  const prices = _ideasData?.priceMap?.[a.sym];
+  if (!prices || prices.length < 20) return '';
+  const cripto = a.type === 'crypto';
+  const f = v => '$' + fmt(v, (cripto && v > 500) ? 0 : 2);
+  const last = a.currentPrice || prices[prices.length - 1];
+  const recent20 = prices.slice(-20);
+  const sma20 = recent20.reduce((s, v) => s + v, 0) / recent20.length;
+  const support = Math.min(...recent20);
+  const high3mo = Math.max(...prices);
+
+  let entryLow, entryHigh, nota, ahora;
+  if (last <= sma20 * 1.015) {
+    // En/bajo su promedio de 20 días → zona de entrada razonable ahora
+    entryLow = last * 0.97;   // hasta -3% del precio actual
+    entryHigh = last;
+    ahora = true;
+    nota = 'Cotiza en/bajo su promedio de 20 días — zona de compra razonable a precio actual o en un retroceso menor.';
+  } else {
+    // Extendido sobre el promedio → esperar pullback
+    entryLow = Math.max(support, sma20 * 0.99);
+    entryHigh = sma20 * 1.015;
+    ahora = false;
+    nota = 'Está sobre su promedio de 20 días — conviene esperar un retroceso a la zona indicada antes de entrar.';
+  }
+  const entryMid = (entryLow + entryHigh) / 2;
+  const stop = Math.min(support, entryLow) * 0.95;            // 5% bajo el soporte
+  let target = (a.targetPrice && a.targetPrice > last) ? a.targetPrice
+             : (high3mo > last * 1.02 ? high3mo : last * 1.15);
+  const riesgo = entryMid - stop, recompensa = target - entryMid;
+  const rr = riesgo > 0 && recompensa > 0 ? recompensa / riesgo : null;
+  const pct = v => ((v - last) / last * 100);
+  const sign = v => (v >= 0 ? '+' : '') + fmt(v, 1) + '%';
+
+  return `
+    <div style="grid-column:1/-1;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+        <svg class="ico-sm ico" style="width:15px;height:15px;color:var(--blue)"><use href="#i-target"/></svg>
+        <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text)">Plan de entrada</span>
+        <span style="margin-left:auto;font-size:.62rem;font-weight:600;padding:2px 8px;border-radius:8px;background:${ahora ? 'var(--green-bg)' : 'var(--yellow-bg)'};color:${ahora ? 'var(--green)' : 'var(--yellow)'}">${ahora ? 'Zona de entrada' : 'Esperar pullback'}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:.78rem;color:var(--muted)">Entrada sugerida</span>
+        <span style="font-size:.82rem;font-weight:700">${f(entryLow)} – ${f(entryHigh)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:.78rem;color:var(--muted)">Stop-loss</span>
+        <span style="font-size:.82rem;font-weight:700;color:var(--red)">${f(stop)} <span style="font-size:.66rem;font-weight:500">(${sign(pct(stop))})</span></span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;${rr ? 'border-bottom:1px solid var(--border)' : ''}">
+        <span style="font-size:.78rem;color:var(--muted)">Objetivo</span>
+        <span style="font-size:.82rem;font-weight:700;color:var(--green)">${f(target)} <span style="font-size:.66rem;font-weight:500">(${sign(pct(target))})</span></span>
+      </div>
+      ${rr ? `<div style="display:flex;justify-content:space-between;padding:6px 0">
+        <span style="font-size:.78rem;color:var(--muted)">Riesgo / Recompensa</span>
+        <span style="font-size:.82rem;font-weight:700;color:${rr >= 2 ? 'var(--green)' : rr >= 1 ? 'var(--yellow)' : 'var(--red)'}">1 : ${fmt(rr, 1)}</span>
+      </div>` : ''}
+      <div style="font-size:.7rem;color:var(--muted);line-height:1.5;margin-top:8px">${nota}</div>
+      <div style="font-size:.62rem;color:var(--faint);margin-top:6px">Niveles técnicos referenciales (promedio 20d, soporte reciente). No es asesoría financiera.</div>
+    </div>`;
+}
+
 function openIdea(sym) {
   const all = [...(_ideasData?.diversify||[]), ...(_ideasData?.radar||[])];
   const a = all.find(x => x.sym === sym);
@@ -3109,6 +3173,7 @@ function openIdea(sym) {
         <div class="fund-card"><div class="fund-label">Correlación</div><div class="fund-val">${corrStr}</div></div>
         ${upsideRow}
       </div>
+      ${_ideaEntryPlan(a)}
       <div style="font-size:.8rem;color:var(--muted);line-height:1.65;margin-bottom:14px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px">${a.desc}</div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span style="font-size:.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Gráfico — 90 días</span>
