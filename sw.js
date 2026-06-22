@@ -1,4 +1,4 @@
-const CACHE_NAME = 'portafolio-v3';
+const CACHE_NAME = 'portafolio-v4';
 const STATIC_ASSETS = [
   '/portafolio-dashboard/',
   '/portafolio-dashboard/index.html',
@@ -26,7 +26,12 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
   // GAS, Yahoo, FMP, Groq, Binance → siempre red (datos dinámicos, no cachear)
+  // OJO: el Cloudflare Worker (workers.dev) también es DATOS DINÁMICOS (proxy
+  // de GAS/Binance). Si no se excluye, caía en cache-first y servía para
+  // siempre la primera respuesta vieja (ej. caja $0.15 congelada). Su propia
+  // caché de 45s vive server-side, así que acá siempre vamos a la red.
   if (
+    url.hostname.includes('workers.dev') ||
     url.hostname.includes('script.google.com') ||
     url.hostname.includes('finance.yahoo.com') ||
     url.hostname.includes('financialmodelingprep.com') ||
