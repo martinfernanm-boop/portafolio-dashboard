@@ -1807,7 +1807,7 @@ async function renderPortfolio(){
     document.getElementById('pos-list')?.classList.add('pos-list-anim'); // entrada escalonada al cargar
     renderPosRows(posiciones);
     drawSparklines(posiciones);
-    renderPerfPanel((resumen.valor||0) + (resumen.caja||0), posiciones, resumen);
+    renderPerfPanel((resumen.valor||0), posiciones, resumen); // resumen.valor (O2) YA incluye la caja — no sumarla otra vez
     calcPortfolioBeta(posiciones);
     renderJournal();
     buildHeatmap('heatmap-pf-container');
