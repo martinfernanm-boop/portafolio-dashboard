@@ -1825,6 +1825,9 @@ async function renderPerfPanel(valorActual, posiciones, resumen){
   let hist=[];
   try { ({historial: hist}={...await get('historial')}); } catch { return; }
   if(!hist?.length) return;
+  // Aportes/retiros para descontar los flujos externos de cada período
+  let aportes=[];
+  try { aportes=(await get('aportes')).aportes||[]; } catch {}
 
   const entries=hist
     .map(h=>({ts:new Date(h.fecha).getTime(), valor:h.valor}))
@@ -1878,8 +1881,12 @@ async function renderPerfPanel(valorActual, posiciones, resumen){
       pct=p.total.pct;
     } else {
       if(!p.ref) return `<div class="perf-cell"><div class="perf-label">${p.label}</div><div class="perf-pct" style="color:var(--faint)">—</div><div class="perf-usd">sin datos</div></div>`;
-      dif=valorActual-p.ref.valor;
-      pct=dif/p.ref.valor*100;
+      // Descontar flujos externos (aportes +, retiros −) ocurridos DENTRO del
+      // período: no son rendimiento. Sin esto, un retiro se ve como pérdida
+      // masiva y un aporte como ganancia falsa.
+      const netFlow=aportes.filter(a=>new Date(a.fecha).getTime()>p.ref.ts).reduce((s,a)=>s+(+a.monto||0),0);
+      dif=(valorActual-p.ref.valor)-netFlow;
+      pct=p.ref.valor?dif/p.ref.valor*100:0;
     }
     const c=dif>=0?'var(--green)':'var(--red)';
     return `<div class="perf-cell">
