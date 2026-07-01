@@ -796,7 +796,7 @@ button:focus:not(:focus-visible){outline:none}
     <div class="section-header">
       <span class="section-title"><svg class="ico-xs ico" style="color:var(--yellow)"><use href="#i-zap"/></svg> Oportunidades de entrada</span>
     </div>
-    <div class="section-sub">Acciones y ETFs con rating Buy · upside vs precio objetivo · caída reciente</div>
+    <div class="section-sub">Acciones/ETFs con rating Buy y upside · cripto en sobreventa (RSI) con recorrido al alza</div>
     <div id="ideas-radar"><div class="loading"><div class="spinner"></div>Buscando oportunidades…</div></div>
   </div>
 
@@ -2853,6 +2853,21 @@ let IDEAS_PORT_TICKERS = ['TSLA','NVDA','ASML','PLTR','VOO','TTWO','BLK','UNH','
 
 let _ideasData = null;
 
+// RSI (14) simple: <30 sobreventa, >70 sobrecompra. Señal técnica para cripto
+// (que no tienen rating/target de analistas).
+function _rsi(prices, period = 14) {
+  if (!prices || prices.length < period + 1) return null;
+  let gains = 0, losses = 0;
+  for (let i = prices.length - period; i < prices.length; i++) {
+    const ch = prices[i] - prices[i - 1];
+    if (ch >= 0) gains += ch; else losses -= ch;
+  }
+  const avgLoss = losses / period;
+  if (avgLoss === 0) return 100;
+  const rs = (gains / period) / avgLoss;
+  return 100 - 100 / (1 + rs);
+}
+
 async function buildIdeas() {
   if (_ideasData) { _renderIdeas(); return; }
 
@@ -2890,7 +2905,9 @@ async function buildIdeas() {
     const last = prices[prices.length - 1];
     const p30  = prices.length > 30 ? prices[prices.length - 31] : prices[0];
     const p7   = prices.length > 7  ? prices[prices.length - 8]  : prices[0];
-    return {...a, corr, change30d:(last-p30)/p30*100, change7d:(last-p7)/p7*100, currentPrice:last};
+    const high3mo = Math.max(...prices);
+    return {...a, corr, change30d:(last-p30)/p30*100, change7d:(last-p7)/p7*100, currentPrice:last,
+      high3mo, drawdown:(last-high3mo)/high3mo*100, rsi:_rsi(prices,14)};
   }).filter(Boolean);
 
   // 4. Ratings + precio objetivo FMP (caché sessionStorage 6h)
@@ -2923,11 +2940,18 @@ async function buildIdeas() {
     try { sessionStorage.setItem(FMP_CACHE, JSON.stringify({data:fmpData, ts:Date.now()})); } catch {}
   }
 
-  // 5. Enriquecer con datos FMP
+  // 5. Enriquecer con datos FMP (acciones) o técnicos (cripto)
   const enriched = candidates.map(a => {
     const f = fmpData[a.sym] || {};
-    const upside = f.targetPrice && a.currentPrice ? (f.targetPrice - a.currentPrice) / a.currentPrice * 100 : null;
-    return {...a, fmpRating: f.rating ? {rating:f.rating, score:f.rScore} : null, targetPrice:f.targetPrice||null, upside};
+    let targetPrice = f.targetPrice || null;
+    let upside = targetPrice && a.currentPrice ? (targetPrice - a.currentPrice) / a.currentPrice * 100 : null;
+    // Cripto: sin target de analistas → objetivo = recuperación al máximo de 3
+    // meses (target de swing conservador); upside = cuánto falta para llegar.
+    if (a.type === 'crypto' && a.high3mo > a.currentPrice) {
+      targetPrice = a.high3mo;
+      upside = (a.high3mo - a.currentPrice) / a.currentPrice * 100;
+    }
+    return {...a, fmpRating: f.rating ? {rating:f.rating, score:f.rScore} : null, targetPrice, upside};
   });
 
   // 6. Diversificación: menor correlación absoluta
@@ -2937,12 +2961,19 @@ async function buildIdeas() {
     .slice(0, 6)
     .map(a => ({...a, _section:'diversify', _score:_ideaScore(a,'diversify')}));
 
-  // 7. Radar: solo acciones y ETFs (no crypto) con criterios de entrada
+  // 7. Radar: acciones/ETFs (rating+upside FMP) y CRIPTO (RSI+caída+upside).
   const radar = enriched.filter(a => {
     if (IDEAS_PORT_TICKERS.includes(a.sym)) return false;
-    if (a.type === 'crypto') return false; // crypto excluida de oportunidades de entrada
+    if (a.type === 'crypto') {
+      // Oportunidad cripto = sobreventa (RSI bajo) o caída fuerte, con recorrido
+      // al alza hacia su máximo reciente. Si no la cumple, NO aparece (puede que
+      // hoy no haya oportunidad en ninguna cripto — eso es correcto).
+      const oversold = a.rsi != null && a.rsi < 45;
+      const bigDip   = a.change30d != null && a.change30d < -12;
+      const hasUpside = a.upside != null && a.upside > 15;
+      return (oversold || bigDip) && hasUpside;
+    }
     const goodRating = a.fmpRating && ['Strong Buy','Buy'].includes(a.fmpRating.rating);
-    const dip        = a.change30d != null && a.change30d < -5;
     const goodUpside = a.upside != null && a.upside > 10;
     // Mostrar si tiene rating bueno, O si tiene upside > 10%, O si cayó > 10% (sin importar rating)
     return goodRating || goodUpside || (a.change30d != null && a.change30d < -10);
@@ -2966,7 +2997,9 @@ function _ideaScore(a, section) {
     score += a.fmpRating ? (a.fmpRating.score/5) * 30 : 15;      // rating analistas
     score += a.change30d!=null ? Math.min(20, Math.max(0, 10+(-a.change30d)*0.5)) : 10; // caída = entrada
   } else {
-    score += a.fmpRating ? (a.fmpRating.score/5)*40 : (a.type==='crypto'?20:15); // rating
+    // Acciones: rating de analistas. Cripto: RSI (más sobreventa = mejor entrada).
+    if (a.type === 'crypto') score += a.rsi!=null ? Math.min(40, Math.max(5, (50-a.rsi)*2 + 15)) : 20;
+    else                     score += a.fmpRating ? (a.fmpRating.score/5)*40 : 15;
     score += a.upside!=null ? Math.min(35, Math.max(0, a.upside*1.2)) : 10;      // upside
     score += a.change30d!=null ? Math.min(25, Math.max(0, -a.change30d*1.5)) : 10; // dip
   }
@@ -3021,7 +3054,9 @@ function _ideaCard(a) {
   if (section==='diversify') {
     reason = `Correlación con tu portafolio: <b>${corrStr}</b> — ${corrLabel}`;
   } else if (a.type==='crypto') {
-    reason = `Caída de <b>${chgStr}</b> en 30 días — potencial rebote`;
+    const rsiPart = a.rsi!=null ? `RSI <b>${fmt(a.rsi,0)}</b>${a.rsi<40?' <span class="positive">(sobreventa)</span>':''}` : 'Cripto';
+    const upPart  = a.upside!=null ? ` · Upside a máx: <b class="positive">+${fmt(a.upside,0)}%</b>` : '';
+    reason = `${rsiPart}${upPart} · 30d: ${chgStr}`;
   } else {
     const upsidePart = a.upside!=null ? ` · Upside: <b class="positive">+${fmt(a.upside,1)}%</b>` : '';
     reason = `<b>${a.fmpRating?.rating||'Buy'}</b> según analistas${upsidePart} · 30d: ${chgStr}`;
@@ -3128,10 +3163,11 @@ function openIdea(sym) {
   const chg7Cls  = a.change7d!=null  ? (a.change7d>=0?'positive':'negative')  : '';
   const corrStr  = a.corr!==null ? (a.corr>=0?'+':'')+fmt(a.corr,2) : '—';
 
+  const objLabel = a.type==='crypto' ? 'Objetivo: máximo de 3 meses' : 'Precio objetivo analistas';
   const upsideRow = (a.upside!=null && a.targetPrice!=null)
     ? `<div class="fund-card" style="grid-column:1/-1">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <div><div class="fund-label">Precio objetivo analistas</div>
+          <div><div class="fund-label">${objLabel}</div>
                <div class="fund-val positive">+${fmt(a.upside,1)}% upside estimado</div></div>
           <div style="text-align:right">
             <div class="fund-label">Objetivo</div>
@@ -3177,7 +3213,9 @@ function openIdea(sym) {
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
         <div class="fund-card"><div class="fund-label">30 días</div><div class="fund-val ${chg30Cls}">${chg30}</div></div>
         <div class="fund-card"><div class="fund-label">7 días</div><div class="fund-val ${chg7Cls}">${chg7}</div></div>
-        <div class="fund-card"><div class="fund-label">Correlación</div><div class="fund-val">${corrStr}</div></div>
+        ${a.type==='crypto' && a.rsi!=null
+          ? `<div class="fund-card"><div class="fund-label">RSI (14)</div><div class="fund-val" style="color:${a.rsi<30?'var(--green)':a.rsi>70?'var(--red)':'var(--text)'}">${fmt(a.rsi,0)}${a.rsi<30?' ▼':a.rsi>70?' ▲':''}</div></div>`
+          : `<div class="fund-card"><div class="fund-label">Correlación</div><div class="fund-val">${corrStr}</div></div>`}
         ${upsideRow}
       </div>
       ${_ideaEntryPlan(a)}
