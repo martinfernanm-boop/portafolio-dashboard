@@ -346,6 +346,13 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .qchip:hover{border-color:var(--blue);color:var(--text)}
 
 /* ── IDEAS ── */
+/* Secciones colapsables: header clickeable + chevron + colapso animado */
+.idea-sec-hdr{cursor:pointer;user-select:none;-webkit-user-select:none}
+.idea-chevron{color:var(--muted);flex-shrink:0;transition:transform .28s cubic-bezier(.4,0,.2,1)}
+.idea-sec.collapsed .idea-chevron{transform:rotate(-90deg)}
+.idea-sec-body{display:grid;grid-template-rows:1fr;transition:grid-template-rows .3s cubic-bezier(.4,0,.2,1)}
+.idea-sec.collapsed .idea-sec-body{grid-template-rows:0fr}
+.idea-sec-inner{overflow:hidden;min-height:0}
 .idea-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:background .15s;display:flex;align-items:center;gap:10px}
 .idea-card:hover,.idea-card:active{background:var(--surface2)}
 #ideas-sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:265}
@@ -792,21 +799,39 @@ button:focus:not(:focus-visible){outline:none}
   </div>
 
   <!-- Oportunidades de entrada -->
-  <div class="section">
-    <div class="section-header">
+  <div class="section idea-sec" data-sec="radar">
+    <div class="section-header idea-sec-hdr" onclick="toggleSection('radar')">
       <span class="section-title"><svg class="ico-xs ico" style="color:var(--yellow)"><use href="#i-zap"/></svg> Oportunidades de entrada</span>
+      <svg class="ico-xs ico idea-chevron"><use href="#i-down"/></svg>
     </div>
-    <div class="section-sub">Acciones/ETFs con rating Buy y upside · cripto en sobreventa (RSI) con recorrido al alza</div>
-    <div id="ideas-radar"><div class="loading"><div class="spinner"></div>Buscando oportunidades…</div></div>
+    <div class="idea-sec-body"><div class="idea-sec-inner">
+      <div class="section-sub">Acciones/ETFs con rating Buy y upside · cripto en sobreventa (RSI) con recorrido al alza</div>
+      <div id="ideas-radar"><div class="loading"><div class="spinner"></div>Buscando oportunidades…</div></div>
+    </div></div>
+  </div>
+
+  <!-- Reduce el beta -->
+  <div class="section idea-sec" data-sec="lowbeta">
+    <div class="section-header idea-sec-hdr" onclick="toggleSection('lowbeta')">
+      <span class="section-title"><svg class="ico-xs ico" style="color:var(--green)"><use href="#i-target"/></svg> Reduce el beta</span>
+      <svg class="ico-xs ico idea-chevron"><use href="#i-down"/></svg>
+    </div>
+    <div class="idea-sec-body"><div class="idea-sec-inner">
+      <div class="section-sub">Acciones/ETFs defensivos (beta bajo) que reducen la volatilidad de tu portafolio</div>
+      <div id="ideas-lowbeta"><div class="loading"><div class="spinner"></div>Calculando betas…</div></div>
+    </div></div>
   </div>
 
   <!-- Diversificación -->
-  <div class="section">
-    <div class="section-header">
+  <div class="section idea-sec" data-sec="diversify">
+    <div class="section-header idea-sec-hdr" onclick="toggleSection('diversify')">
       <span class="section-title"><svg class="ico-xs ico" style="color:var(--blue)"><use href="#i-globe"/></svg> Diversifica tu portafolio</span>
+      <svg class="ico-xs ico idea-chevron"><use href="#i-down"/></svg>
     </div>
-    <div class="section-sub">Activos con baja correlación a tus posiciones actuales</div>
-    <div id="ideas-diversify"><div class="loading"><div class="spinner"></div>Calculando correlaciones…</div></div>
+    <div class="idea-sec-body"><div class="idea-sec-inner">
+      <div class="section-sub">Activos con baja correlación a tus posiciones actuales</div>
+      <div id="ideas-diversify"><div class="loading"><div class="spinner"></div>Calculando correlaciones…</div></div>
+    </div></div>
   </div>
 </div>
 
@@ -2848,6 +2873,14 @@ const IDEAS_UNIVERSE = [
 ];
 
 const IDEAS_PLAT_COLORS = {etoro:'#00C176', binance:'#F0B90B', racional:'#6366f1'};
+// Beta de referencia (largo plazo vs S&P 500). FMP descontinuó el endpoint que
+// lo entregaba, así que se usa este mapa estable. <1 = menos volátil que el
+// mercado (defensivo, reduce el beta del portafolio).
+const IDEAS_BETA = {
+  AAPL:1.25, AMZN:1.15, GOOGL:1.02, META:1.22, AMD:1.75, JPM:1.1, V:0.95, JNJ:0.5,
+  XOM:0.88, WMT:0.5, DIS:1.4, KO:0.6, QQQ:1.1, GLD:0.12, TLT:0.2, VNQ:1.15, XLE:1.05,
+  'CMPC.SN':0.85, 'FALABELLA.SN':1.05
+};
 // Lista por defecto; se refresca con las posiciones reales en buildIdeas()
 let IDEAS_PORT_TICKERS = ['TSLA','NVDA','ASML','PLTR','VOO','TTWO','BLK','UNH','MSFT','INTU','CRWV','SCHD','VPU','QUINENCO'];
 
@@ -2868,7 +2901,23 @@ function _rsi(prices, period = 14) {
   return 100 - 100 / (1 + rs);
 }
 
+// Colapsar/expandir secciones de Ideas (recuerda el estado en localStorage)
+const IDEAS_SECS = ['radar', 'lowbeta', 'diversify'];
+function toggleSection(id) {
+  const sec = document.querySelector(`.idea-sec[data-sec="${id}"]`);
+  if (!sec) return;
+  const collapsed = sec.classList.toggle('collapsed');
+  try { localStorage.setItem('ideas_col_' + id, collapsed ? '1' : '0'); } catch {}
+}
+function _applyIdeasCollapse() {
+  IDEAS_SECS.forEach(id => {
+    const sec = document.querySelector(`.idea-sec[data-sec="${id}"]`);
+    if (sec) sec.classList.toggle('collapsed', localStorage.getItem('ideas_col_' + id) === '1');
+  });
+}
+
 async function buildIdeas() {
+  _applyIdeasCollapse();
   if (_ideasData) { _renderIdeas(); return; }
 
   // 0. Tickers reales del portafolio (para excluirlos de las sugerencias)
@@ -2911,7 +2960,7 @@ async function buildIdeas() {
   }).filter(Boolean);
 
   // 4. Ratings + precio objetivo FMP (caché sessionStorage 6h)
-  const FMP_CACHE = 'fmp_data_v4';
+  const FMP_CACHE = 'fmp_data_v5';
   let fmpData = {};
   try {
     const cached = sessionStorage.getItem(FMP_CACHE);
@@ -2951,7 +3000,7 @@ async function buildIdeas() {
       targetPrice = a.high3mo;
       upside = (a.high3mo - a.currentPrice) / a.currentPrice * 100;
     }
-    return {...a, fmpRating: f.rating ? {rating:f.rating, score:f.rScore} : null, targetPrice, upside};
+    return {...a, fmpRating: f.rating ? {rating:f.rating, score:f.rScore} : null, targetPrice, upside, beta: (IDEAS_BETA[a.sym]!=null?IDEAS_BETA[a.sym]:null)};
   });
 
   // 6. Diversificación: menor correlación absoluta
@@ -2986,7 +3035,14 @@ async function buildIdeas() {
   .slice(0, 8)
   .map(a => ({...a, _section:'radar', _score:_ideaScore(a,'radar')}));
 
-  _ideasData = {diversify, radar, priceMap};
+  // 8. Reduce el beta: acciones/ETFs defensivos (beta < 0.9), menor beta primero.
+  const lowbeta = enriched
+    .filter(a => !IDEAS_PORT_TICKERS.includes(a.sym) && a.type !== 'crypto' && a.beta != null && a.beta < 0.9)
+    .sort((a,b) => a.beta - b.beta)
+    .slice(0, 6)
+    .map(a => ({...a, _section:'lowbeta', _score:_ideaScore(a,'lowbeta')}));
+
+  _ideasData = {diversify, radar, lowbeta, priceMap};
   _renderIdeas();
 }
 
@@ -2996,6 +3052,10 @@ function _ideaScore(a, section) {
     score += Math.max(0, (1 - Math.abs(a.corr||0))) * 50;        // correlación baja = bueno
     score += a.fmpRating ? (a.fmpRating.score/5) * 30 : 15;      // rating analistas
     score += a.change30d!=null ? Math.min(20, Math.max(0, 10+(-a.change30d)*0.5)) : 10; // caída = entrada
+  } else if (section === 'lowbeta') {
+    score += Math.max(0, (1 - (a.beta!=null?a.beta:1))) * 55;    // beta bajo = mejor defensiva
+    score += a.fmpRating ? (a.fmpRating.score/5) * 30 : 15;      // calidad (rating)
+    score += a.corr!=null ? Math.max(0, (1-Math.abs(a.corr))*15) : 8; // baja correlación suma
   } else {
     // Acciones: rating de analistas. Cripto: RSI (más sobreventa = mejor entrada).
     if (a.type === 'crypto') score += a.rsi!=null ? Math.min(40, Math.max(5, (50-a.rsi)*2 + 15)) : 20;
@@ -3032,12 +3092,14 @@ function _scoreBar(score, compact=false) {
 }
 
 function _renderIdeas() {
-  const {diversify, radar} = _ideasData;
+  const {diversify, radar, lowbeta} = _ideasData;
   const divEl   = document.getElementById('ideas-diversify');
   const radarEl = document.getElementById('ideas-radar');
+  const betaEl  = document.getElementById('ideas-lowbeta');
   if (!divEl || !radarEl) return;
   divEl.innerHTML   = diversify.length ? diversify.map(_ideaCard).join('') : '<div class="loading">Sin datos suficientes para calcular correlaciones.</div>';
   radarEl.innerHTML = radar.length     ? radar.map(_ideaCard).join('')     : '<div class="loading" style="flex-direction:column;gap:4px;text-align:center"><span>Sin oportunidades detectadas</span><span style="font-size:.72rem;color:var(--muted)">No hay activos con caída significativa y rating Buy / Strong Buy.</span></div>';
+  if (betaEl) betaEl.innerHTML = (lowbeta&&lowbeta.length) ? lowbeta.map(_ideaCard).join('') : '<div class="loading">Sin datos de beta suficientes.</div>';
 }
 
 function _ideaCard(a) {
@@ -3051,7 +3113,10 @@ function _ideaCard(a) {
   const dispSym  = a.sym.replace('-USD','').replace('.SN','');
 
   let reason = '';
-  if (section==='diversify') {
+  if (section==='lowbeta') {
+    const bl = a.beta<0.5?'muy defensiva':a.beta<0.75?'defensiva':'baja volatilidad';
+    reason = `Beta <b>${fmt(a.beta,2)}</b> — ${bl}, baja el riesgo de tu portafolio`;
+  } else if (section==='diversify') {
     reason = `Correlación con tu portafolio: <b>${corrStr}</b> — ${corrLabel}`;
   } else if (a.type==='crypto') {
     const rsiPart = a.rsi!=null ? `RSI <b>${fmt(a.rsi,0)}</b>${a.rsi<40?' <span class="positive">(sobreventa)</span>':''}` : 'Cripto';
@@ -3079,8 +3144,9 @@ function _ideaCard(a) {
       ${_scoreBar(a._score, true)}
     </div>
     <div style="text-align:right;flex-shrink:0;margin-left:12px">
-      <div class="${chgCls}" style="font-size:.9rem;font-weight:700">${chgStr}</div>
-      <div style="font-size:.62rem;color:var(--muted);margin-top:2px">30 días</div>
+      ${section==='lowbeta' && a.beta!=null
+        ? `<div style="font-size:.9rem;font-weight:700;color:var(--green)">${fmt(a.beta,2)}</div><div style="font-size:.62rem;color:var(--muted);margin-top:2px">beta</div>`
+        : `<div class="${chgCls}" style="font-size:.9rem;font-weight:700">${chgStr}</div><div style="font-size:.62rem;color:var(--muted);margin-top:2px">30 días</div>`}
     </div>
   </div>`;
 }
@@ -3215,6 +3281,8 @@ function openIdea(sym) {
         <div class="fund-card"><div class="fund-label">7 días</div><div class="fund-val ${chg7Cls}">${chg7}</div></div>
         ${a.type==='crypto' && a.rsi!=null
           ? `<div class="fund-card"><div class="fund-label">RSI (14)</div><div class="fund-val" style="color:${a.rsi<30?'var(--green)':a.rsi>70?'var(--red)':'var(--text)'}">${fmt(a.rsi,0)}${a.rsi<30?' ▼':a.rsi>70?' ▲':''}</div></div>`
+          : (a._section==='lowbeta' && a.beta!=null)
+          ? `<div class="fund-card"><div class="fund-label">Beta (vs SPY)</div><div class="fund-val" style="color:var(--green)">${fmt(a.beta,2)}</div></div>`
           : `<div class="fund-card"><div class="fund-label">Correlación</div><div class="fund-val">${corrStr}</div></div>`}
         ${upsideRow}
       </div>
