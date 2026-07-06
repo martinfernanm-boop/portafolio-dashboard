@@ -182,7 +182,7 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .pos-row{display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
 .pos-row:last-child{border-bottom:none}
 .pos-row:hover{background:var(--surface2)}
-.pos-ticker{font-weight:700;font-size:.9rem;width:76px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowraw;line-height:1.3}
+.pos-ticker{font-weight:700;font-size:.9rem;width:76px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
 .pos-info{flex:1;min-width:0}
 .pos-name{font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pos-sub{font-size:.68rem;color:var(--muted);margin-top:1px}
@@ -283,6 +283,8 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 /* UTILS */
 .positive{color:var(--green)}
 .negative{color:var(--red)}
+/* Ocultar balances: difumina montos en toda la app (persistente vía localStorage) */
+body.balance-hidden #h-total,body.balance-hidden #h-gp,body.balance-hidden #h-ret,body.balance-hidden #h-caja,body.balance-hidden #h-crypto,body.balance-hidden #h-hoy,body.balance-hidden #p-total,body.balance-hidden #p-gp,body.balance-hidden #p-ret,body.balance-hidden #p-crypto,body.balance-hidden #bnc-total,body.balance-hidden #bnc-disponible,body.balance-hidden .pos-val,body.balance-hidden .perf-usd,body.balance-hidden #evo-chart{filter:blur(7px);user-select:none}
 .loading{display:flex;align-items:center;justify-content:center;padding:26px 20px;color:var(--muted);font-size:.85rem;gap:10px}
 .spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -538,6 +540,7 @@ button:focus:not(:focus-visible){outline:none}
     <div class="hero-total" id="h-total">—</div>
     <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap">
       <span class="change-pill"><span class="meta-value" id="h-gp">—</span><span style="opacity:.5">·</span><span class="meta-value" id="h-ret">—</span></span>
+      <span class="badge" id="h-hoy" style="color:var(--muted);display:none"></span>
       <span class="badge" style="color:var(--muted)">Caja&nbsp;<span class="num" id="h-caja" style="color:var(--text)">—</span></span>
       <span class="badge" id="h-crypto" style="color:var(--muted);display:none"></span>
     </div>
@@ -1038,7 +1041,7 @@ button:focus:not(:focus-visible){outline:none}
       </button>
       <div class="set-row">
         <div><div class="set-label">Asistente Warren (IA)</div><div class="set-sub" id="set-ia-status">—</div></div>
-        <button class="btn" style="font-size:.72rem;padding:5px 12px" onclick="toggleChat()">Configurar</button>
+        <button class="btn" style="font-size:.72rem;padding:5px 12px" onclick="configurarIA()">Configurar</button>
       </div>
     </div>
   </div>
@@ -1174,6 +1177,10 @@ const CACHE_TTL = 15*60*1000; // 15 min (journal, historial, aportes, etc.)
 const CACHE_TTL_PORTAFOLIO = 90*1000; // 90s — precios/varDia cambian todo el día,
 // no tiene sentido mostrar una lectura de hace 15 min como si fuera actual
 let curPage='home', prevPage='portfolio';
+// Huella de los datos del portafolio ya renderizados: el auto-refresh solo
+// re-renderiza (y re-anima charts) si esto cambió.
+let _pfSnapshot='';
+const pfSnap = d => { try { return JSON.stringify(d.resumen)+'|'+(d.posiciones||[]).map(p=>p.ticker+':'+p.precioActual+':'+p.varDia).join(','); } catch { return ''; } };
 let evoChart=null, donutChart=null, tvWidget=null;
 let donutMode='ticker', pfMode='pct';
 let lastPosiciones=[];
@@ -1188,6 +1195,8 @@ const fmtPct = (n,sign=true) => { const v=toPct(n); return (sign&&v>=0?'+':'')+f
 const cls = n => toPct(n)>=0?'positive':'negative';
 const relTime = ts => { const m=Math.floor((Date.now()-ts*1000)/60000); if(m<60)return m+'m'; if(m<1440)return Math.floor(m/60)+'h'; return Math.floor(m/1440)+'d'; };
 const fmtDate = ts => ts ? new Date(ts*1000).toLocaleDateString('es-CL',{day:'numeric',month:'short',year:'numeric'}) : '—';
+// Escapa HTML de textos externos (títulos de noticias, motivos del journal)
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 // URL del Cloudflare Worker del usuario (también acelera Yahoo y GAS)
 const workerURL = () => (localStorage.getItem('bnc_worker') || '').replace(/\/+$/, '');
@@ -1593,7 +1602,18 @@ async function renderHome(){
     retEl.textContent=fmtPct(resumen.retorno);
     retEl.className='meta-value '+cls(resumen.retorno);
     document.getElementById('h-caja').textContent=usd(resumen.caja||0);
+    // Chip "Hoy": ganancia del día en $ y % (mismo cálculo que el panel de rendimiento)
+    const hoyEl=document.getElementById('h-hoy');
+    if(hoyEl){
+      const hoy=calcHoyUSD(posiciones);
+      if(hoy!=null && resumen.valor){
+        const pct=hoy/((resumen.valor-hoy)||1)*100;
+        hoyEl.style.display='inline-flex';
+        hoyEl.innerHTML=`Hoy&nbsp;<span class="num ${hoy>=0?'positive':'negative'}">${hoy>=0?'+':'−'}$${fmt(Math.abs(hoy))} · ${pct>=0?'+':''}${fmt(pct,2)}%</span>`;
+      } else hoyEl.style.display='none';
+    }
     if (fechaEl) fechaEl.textContent='Actualizado: '+resumen.fecha;
+    _pfSnapshot=pfSnap({resumen,posiciones});
     buildDonut(posiciones);
     buildEvo();
     renderSemaforo();
@@ -1832,6 +1852,7 @@ async function renderPortfolio(){
     const retEl=document.getElementById('p-ret');
     retEl.textContent=fmtPct(resumen.retorno);
     retEl.className='meta-value '+cls(resumen.retorno);
+    _pfSnapshot=pfSnap({resumen,posiciones});
     document.getElementById('pos-list')?.classList.add('pos-list-anim'); // entrada escalonada al cargar
     renderPosRows(posiciones);
     drawSparklines(posiciones);
@@ -1847,6 +1868,17 @@ async function renderPortfolio(){
 // evita que una venta —que solo mueve dinero de posiciones a caja— se vea
 // como pérdida. El histórico era casi 100% posiciones (caja ~$0), así que
 // la comparación es consistente.
+// Ganancia del día en USD: Σ (valorUSD − valorUSD/(1+varDia)) con el varDia
+// real de cada posición. Compartida por el panel de rendimiento y el hero.
+function calcHoyUSD(posiciones){
+  let s=0, ok=false;
+  for(const p of posiciones||[]){
+    const vd=parseFloat(p.varDia), val=parseFloat(p.valorUSD);
+    if(!isNaN(vd) && !isNaN(val) && (1+vd)!==0){ s += val - val/(1+vd); ok=true; }
+  }
+  return ok ? s : null;
+}
+
 async function renderPerfPanel(valorActual, posiciones, resumen){
   const grid=document.getElementById('perf-grid');
   if(!grid) return;
@@ -1867,16 +1899,8 @@ async function renderPerfPanel(valorActual, posiciones, resumen){
   // bróker), NO con la diferencia de snapshots: estos dependen del horario
   // de captura y se ensucian los fines de semana (un snapshot de sábado
   // arrastra el cierre del viernes y desvirtúa el cambio del día).
-  // díf hoy = Σ (valorUSD − valorUSD/(1+varDia)). Fallback a snapshot si no hay datos.
-  let hoyUSD=null;
-  if(Array.isArray(posiciones) && posiciones.length){
-    let s=0, ok=false;
-    for(const p of posiciones){
-      const vd=parseFloat(p.varDia), val=parseFloat(p.valorUSD);
-      if(!isNaN(vd) && !isNaN(val) && (1+vd)!==0){ s += val - val/(1+vd); ok=true; }
-    }
-    if(ok) hoyUSD=s;
-  }
+  // Fallback a snapshot si no hay datos.
+  const hoyUSD=calcHoyUSD(posiciones);
 
   const now=Date.now();
   const hoy0=new Date(); hoy0.setHours(0,0,0,0);
@@ -2242,15 +2266,16 @@ function renderTV(ticker){
   const wrap=document.getElementById('tv-chart-wrap');
   wrap.innerHTML='';
   const sym=TV_SYM[ticker]||ticker;
+  const tvTheme=document.documentElement.getAttribute('data-theme')==='light'?'light':'dark';
   if(window.TradingView&&TradingView.widget){
     if(tvWidget){ try{tvWidget.remove();}catch(e){} }
     const cid='tv_'+Date.now();
     const d=document.createElement('div');
     d.id=cid; d.style.height='380px';
     wrap.appendChild(d);
-    tvWidget=new TradingView.widget({autosize:true,symbol:sym,interval:'D',timezone:'America/New_York',theme:'dark',style:'1',locale:'es',toolbar_bg:'#161b22',enable_publishing:false,hide_top_toolbar:false,save_image:false,container_id:cid});
+    tvWidget=new TradingView.widget({autosize:true,symbol:sym,interval:'D',timezone:'America/New_York',theme:tvTheme,style:'1',locale:'es',toolbar_bg:tvTheme==='light'?'#f7f8fa':'#161b22',enable_publishing:false,hide_top_toolbar:false,save_image:false,container_id:cid});
   } else {
-    wrap.innerHTML=`<div class="tradingview-widget-container" style="height:380px;width:100%"><div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>{"autosize":true,"symbol":"${sym}","interval":"D","timezone":"America/New_York","theme":"dark","style":"1","locale":"es","allow_symbol_change":false,"calendar":false}<\/script></div>`;
+    wrap.innerHTML=`<div class="tradingview-widget-container" style="height:380px;width:100%"><div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>{"autosize":true,"symbol":"${sym}","interval":"D","timezone":"America/New_York","theme":"${tvTheme}","style":"1","locale":"es","allow_symbol_change":false,"calendar":false}<\/script></div>`;
   }
 }
 
@@ -2276,7 +2301,7 @@ async function fetchStockNews(ticker){
     const j=await fetchYF(`https://query1.finance.yahoo.com/v1/finance/search?q=${yf}&newsCount=8&enableFuzzyQuery=false`);
     const news=j?.news||[];
     if(!news.length){ el.innerHTML='<div class="loading">Sin noticias disponibles.</div>'; return; }
-    el.innerHTML=news.map(n=>`<a class="news-link" href="${n.link}" target="_blank" rel="noopener noreferrer"><div class="news-item"><div class="news-title">${n.title}</div><div class="news-meta">${n.publisher} · ${relTime(n.providerPublishTime)}</div></div></a>`).join('');
+    el.innerHTML=news.map(n=>`<a class="news-link" href="${esc(n.link)}" target="_blank" rel="noopener noreferrer"><div class="news-item"><div class="news-title">${esc(n.title)}</div><div class="news-meta">${esc(n.publisher)} · ${relTime(n.providerPublishTime)}</div></div></a>`).join('');
   } catch(e){
     el.innerHTML=`<div class="news-item"><div class="news-title" style="color:var(--muted)">No se pudieron cargar las noticias.</div><div class="news-meta"><a href="https://finance.yahoo.com/quote/${yf}/news" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div></div>`;
   }
@@ -2391,7 +2416,7 @@ function renderNewsList(news,filter){
   const el=document.getElementById('news-main-list');
   const filtered=filter==='all'?news:news.filter(n=>n._ticker===filter);
   if(!filtered.length){ el.innerHTML='<div class="loading">Sin noticias para este filtro.</div>'; return; }
-  el.innerHTML=filtered.slice(0,50).map(n=>`<a class="news-link" href="${n.link}" target="_blank" rel="noopener noreferrer"><div class="news-item"><div class="news-title"><span class="news-badge">${n._ticker}</span>${n.title}</div><div class="news-meta">${n.publisher} · ${relTime(n.providerPublishTime)}</div></div></a>`).join('');
+  el.innerHTML=filtered.slice(0,50).map(n=>`<a class="news-link" href="${esc(n.link)}" target="_blank" rel="noopener noreferrer"><div class="news-item"><div class="news-title"><span class="news-badge">${n._ticker}</span>${esc(n.title)}</div><div class="news-meta">${esc(n.publisher)} · ${relTime(n.providerPublishTime)}</div></div></a>`).join('');
 }
 
 // ── INDICES ───────────────────────────────────────────────────
@@ -2483,7 +2508,7 @@ async function fetchIdxNews(simbolo, nombre){
       return;
     }
     el.innerHTML=news.map(n=>
-      `<a class="news-link" href="${n.link}" target="_blank" rel="noopener noreferrer"><div class="news-item"><div class="news-title">${n.title}</div><div class="news-meta">${n.publisher} · ${relTime(n.providerPublishTime)}</div></div></a>`
+      `<a class="news-link" href="${esc(n.link)}" target="_blank" rel="noopener noreferrer"><div class="news-item"><div class="news-title">${esc(n.title)}</div><div class="news-meta">${esc(n.publisher)} · ${relTime(n.providerPublishTime)}</div></div></a>`
     ).join('');
   } catch(e){
     el.innerHTML=`<div class="news-item"><div class="news-title" style="color:var(--muted)">No se pudieron cargar las noticias.</div><div class="news-meta"><a href="https://finance.yahoo.com/search?q=${encodeURIComponent(query)}" target="_blank" style="color:var(--blue)">Ver en Yahoo Finance →</a></div></div>`;
@@ -2651,6 +2676,15 @@ document.querySelector('.chat-header').addEventListener('dblclick',()=>{
   const k=prompt('Nueva API key (Groq: gsk_… o Gemini: AIza…). Deja vacío para cancelar:');
   if(k&&(k.startsWith('AIza')||k.startsWith('gsk_'))){ geminiKey=k; localStorage.setItem('gemini_api_key',k); alert('API key actualizada'); }
 });
+
+// Desde Ajustes: sin key abre el chat (flujo de setup); con key permite cambiarla
+function configurarIA(){
+  if(!geminiKey){ toggleChat(); return; }
+  const k=prompt('Nueva API key (Groq: gsk_… o Gemini: AIza…). Deja vacío para cancelar:');
+  if(!k) return;
+  if(!k.startsWith('AIza')&&!k.startsWith('gsk_')){ alert('La API key debe comenzar con "AIza" (Gemini) o "gsk_" (Groq)'); return; }
+  geminiKey=k; localStorage.setItem('gemini_api_key',k); renderAjustes(); alert('API key actualizada');
+}
 
 // ── ANÁLISIS / HEATMAP ────────────────────────────────────────
 // ── BETA DEL PORTAFOLIO ───────────────────────────────────────
@@ -3219,7 +3253,7 @@ function _ideaEntryPlan(a) {
 }
 
 function openIdea(sym) {
-  const all = [...(_ideasData?.diversify||[]), ...(_ideasData?.radar||[])];
+  const all = [...(_ideasData?.diversify||[]), ...(_ideasData?.radar||[]), ...(_ideasData?.lowbeta||[])];
   const a = all.find(x => x.sym === sym);
   if (!a) return;
 
@@ -3340,21 +3374,20 @@ function closeIdeasSheet() {
 }
 
 // ── BALANCE TOGGLE ─────────────────────────────────────────────
-let balanceHidden = false;
+// El difuminado vive en CSS (body.balance-hidden …) para cubrir también los
+// valores que se re-renderizan (posiciones, panel de rendimiento, Binance).
+let balanceHidden = localStorage.getItem('balance_hidden') === '1';
+function applyBalanceHidden() {
+  document.body.classList.toggle('balance-hidden', balanceHidden);
+  document.getElementById('eye-icon').style.display     = balanceHidden ? 'none' : '';
+  document.getElementById('eye-off-icon').style.display = balanceHidden ? ''     : 'none';
+  const sw = document.getElementById('set-balance');
+  if (sw) sw.checked = balanceHidden;
+}
 function toggleBalance() {
   balanceHidden = !balanceHidden;
-  document.getElementById('eye-icon').style.display    = balanceHidden ? 'none'  : '';
-  document.getElementById('eye-off-icon').style.display = balanceHidden ? ''     : 'none';
-  // Valores numéricos en Home y Portfolio
-  ['h-total','h-gp','h-ret','h-caja','p-total','p-gp','p-ret'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.filter = balanceHidden ? 'blur(7px)' : '';
-    el.style.userSelect = balanceHidden ? 'none' : '';
-  });
-  // Gráfico de evolución
-  const canvas = document.getElementById('evo-chart');
-  if (canvas) canvas.style.filter = balanceHidden ? 'blur(8px)' : '';
+  localStorage.setItem('balance_hidden', balanceHidden ? '1' : '0');
+  applyBalanceHidden();
 }
 
 // ── JOURNAL DE OPERACIONES ────────────────────────────────────
@@ -3446,7 +3479,7 @@ function renderJournalList() {
         <button onclick="editJournal(${e.fila})" title="Editar" style="background:none;border:none;color:var(--faint);cursor:pointer;padding:3px;line-height:0"><svg class="ico-xs ico"><use href="#i-edit"/></svg></button>
         <button onclick="deleteJournal(${e.fila})" title="Eliminar" style="background:none;border:none;color:var(--faint);cursor:pointer;padding:3px;line-height:0"><svg class="ico-xs ico"><use href="#i-trash"/></svg></button>
       </div>
-      ${e.motivo ? `<div style="font-size:.75rem;color:var(--muted);line-height:1.45">${e.motivo}</div>` : ''}
+      ${e.motivo ? `<div style="font-size:.75rem;color:var(--muted);line-height:1.45">${esc(e.motivo)}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -3568,7 +3601,7 @@ async function renderSemaforo() {
     if (vix < 18)      { vixColor='var(--green)';  vixLabel='Calma';      vixScore=2; }
     else if (vix < 25) { vixColor='var(--yellow)'; vixLabel='Alerta';     vixScore=1; }
     else if (vix < 35) { vixColor='var(--red)';    vixLabel='Miedo';      vixScore=0; }
-    else               { vixColor='var(--red)';    vixLabel='Pánico';     vixScore:-1; }
+    else               { vixColor='var(--red)';    vixLabel='Pánico';     vixScore=-1; }
     indicators.push({label:'VIX', value:fmt(vix,1), sub:vixLabel, color:vixColor, score:vixScore});
 
     // 2. SPY semanal — lo que pasó esta semana (lo más relevante)
@@ -4044,20 +4077,24 @@ applyTheme();
 setInterval(applyTheme, 60000); // en modo auto, cambia solo al pasar las 7:00 / 19:00
 
 // ── INIT ──────────────────────────────────────────────────────
+applyBalanceHidden();
 navigate('home');
 updateMarketBanner();
 setInterval(updateMarketBanner, 60000);
 
 // Refresca precios/varDia solo (cada 100s, > CACHE_TTL_PORTAFOLIO) para que
 // Home/Portfolio no se queden pegados en una lectura vieja de GOOGLEFINANCE
-// mientras la app queda abierta. Solo si la pestaña está visible y solo
-// re-renderiza si estamos parados en Home o Portfolio.
+// mientras la app queda abierta. Solo si la pestaña está visible, solo en
+// Home/Portfolio, y solo re-renderiza si los datos CAMBIARON (para no
+// re-animar donut/sparklines cada 100s sin motivo).
 setInterval(async () => {
   if (document.visibilityState !== 'visible') return;
+  if (curPage !== 'home' && curPage !== 'portfolio') return;
   try {
-    await get('portafolio');
+    const d = await get('portafolio');
+    if (pfSnap(d) === _pfSnapshot) return;
     if (curPage === 'home') renderHome();
-    else if (curPage === 'portfolio') renderPortfolio();
+    else renderPortfolio();
   } catch (e) {}
 }, 100000);
 
