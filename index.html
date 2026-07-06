@@ -1170,7 +1170,9 @@ const SECTOR_COLORS = {'Tecnología':'#58a6ff','Consumo discr.':'#ffa657','Entre
 
 // ── STATE ─────────────────────────────────────────────────────
 const cache = {}, cacheTs = {};
-const CACHE_TTL = 15*60*1000; // 15 min
+const CACHE_TTL = 15*60*1000; // 15 min (journal, historial, aportes, etc.)
+const CACHE_TTL_PORTAFOLIO = 90*1000; // 90s — precios/varDia cambian todo el día,
+// no tiene sentido mostrar una lectura de hace 15 min como si fuera actual
 let curPage='home', prevPage='portfolio';
 let evoChart=null, donutChart=null, tvWidget=null;
 let donutMode='ticker', pfMode='pct';
@@ -1214,7 +1216,8 @@ async function fetchYF(url) {
 // GAS: worker propio (caché 45s, mucho más rápido) → directo
 async function get(action, force=false) {
   const now = Date.now();
-  if (!force && cache[action] && (now - cacheTs[action]) < CACHE_TTL) return cache[action];
+  const ttl = action === 'portafolio' ? CACHE_TTL_PORTAFOLIO : CACHE_TTL;
+  if (!force && cache[action] && (now - cacheTs[action]) < ttl) return cache[action];
 
   // force=true salta también el caché del worker (datos recién escritos)
   const w = workerURL();
@@ -4044,6 +4047,19 @@ setInterval(applyTheme, 60000); // en modo auto, cambia solo al pasar las 7:00 /
 navigate('home');
 updateMarketBanner();
 setInterval(updateMarketBanner, 60000);
+
+// Refresca precios/varDia solo (cada 100s, > CACHE_TTL_PORTAFOLIO) para que
+// Home/Portfolio no se queden pegados en una lectura vieja de GOOGLEFINANCE
+// mientras la app queda abierta. Solo si la pestaña está visible y solo
+// re-renderiza si estamos parados en Home o Portfolio.
+setInterval(async () => {
+  if (document.visibilityState !== 'visible') return;
+  try {
+    await get('portafolio');
+    if (curPage === 'home') renderHome();
+    else if (curPage === 'portfolio') renderPortfolio();
+  } catch (e) {}
+}, 100000);
 
 // ── SERVICE WORKER ────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
