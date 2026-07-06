@@ -61,6 +61,11 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 ::selection{background:var(--blue-bg)}
 .num,.hero-total,.meta-value,.pos-val,.pos-var,.idx-price,.idx-var,.var-val,.fund-val{font-variant-numeric:tabular-nums}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+/* iOS hace zoom automático (y deja la página zoomeada) al enfocar inputs con
+   fuente <16px. Solo aplica en WebKit táctil; en desktop no cambia nada. */
+@supports(-webkit-touch-callout:none){
+  input,select,textarea{font-size:16px!important}
+}
 
 /* ICONS */
 .ico{width:20px;height:20px;flex-shrink:0;display:inline-block;vertical-align:middle}
@@ -143,8 +148,10 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .perf-usd{font-size:.64rem;color:var(--muted);margin-top:1px;font-variant-numeric:tabular-nums}
 
 /* PULL TO REFRESH */
-#ptr{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%) translateY(-80px);z-index:400;background:var(--dock);border:1px solid var(--dock-border);border-radius:99px;padding:7px 16px;font-size:.74rem;font-weight:600;color:var(--muted);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);transition:transform .2s;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow)}
-#ptr.show{transform:translateX(-50%) translateY(0)}
+/* Oculto: -100% propio − 20px − el inset superior. Con isla dinámica el inset
+   es ~59px, así que un -80px fijo dejaba el pill asomado para siempre. */
+#ptr{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%) translateY(calc(-100% - 20px - env(safe-area-inset-top,0px)));opacity:0;z-index:400;background:var(--dock);border:1px solid var(--dock-border);border-radius:99px;padding:7px 16px;font-size:.74rem;font-weight:600;color:var(--muted);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);transition:transform .2s,opacity .2s;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow);pointer-events:none}
+#ptr.show{transform:translateX(-50%) translateY(0);opacity:1}
 
 /* FILTER SELECT */
 .fsel{background:var(--glass);border:1px solid var(--border);border-radius:99px;color:var(--muted);font-size:.7rem;font-weight:600;padding:3px 10px;cursor:pointer;outline:none;font-family:inherit;backdrop-filter:blur(10px)}
@@ -248,8 +255,11 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 
 /* INDEX NEWS SHEET */
 #idx-sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:240}
-#idx-news-sheet{position:fixed;bottom:64px;left:0;right:0;height:72vh;background:var(--bg);border-top:2px solid var(--border);border-radius:20px 20px 0 0;z-index:250;transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
-#idx-news-sheet.open{transform:translateY(0)}
+/* Cerrado: 100% + 80px extra — el sheet está anclado a bottom:64px, así que
+   con translateY(100%) a secas sus 64px superiores quedaban asomados bajo el
+   dock en todas las páginas (el "fantasma" con restos del último detalle). */
+#idx-news-sheet{position:fixed;bottom:64px;left:0;right:0;height:72vh;background:var(--bg);border-top:2px solid var(--border);border-radius:20px 20px 0 0;z-index:250;transform:translateY(calc(100% + 80px));transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;pointer-events:none}
+#idx-news-sheet.open{transform:translateY(0);pointer-events:auto}
 .idx-sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 12px}
 .idx-sheet-header{padding:14px 16px 12px;flex-shrink:0;border-bottom:1px solid var(--border)}
 .idx-sheet-meta{display:flex;align-items:flex-start;justify-content:space-between}
@@ -358,8 +368,8 @@ body.balance-hidden #h-total,body.balance-hidden #h-gp,body.balance-hidden #h-re
 .idea-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:background .15s;display:flex;align-items:center;gap:10px}
 .idea-card:hover,.idea-card:active{background:var(--surface2)}
 #ideas-sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:265}
-#ideas-sheet{position:fixed;bottom:64px;left:0;right:0;height:84vh;background:var(--bg);border-top:2px solid var(--border);border-radius:20px 20px 0 0;z-index:270;transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
-#ideas-sheet.open{transform:translateY(0)}
+#ideas-sheet{position:fixed;bottom:64px;left:0;right:0;height:84vh;background:var(--bg);border-top:2px solid var(--border);border-radius:20px 20px 0 0;z-index:270;transform:translateY(calc(100% + 80px));transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden;pointer-events:none}
+#ideas-sheet.open{transform:translateY(0);pointer-events:auto}
 .ideas-handle-area{padding:10px 0 4px;text-align:center;flex-shrink:0}
 .ideas-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto}
 .ideas-sheet-hdr{padding:0 16px 12px;flex-shrink:0;border-bottom:1px solid var(--border)}
@@ -414,8 +424,8 @@ body.balance-hidden #h-total,body.balance-hidden #h-gp,body.balance-hidden #h-re
 
   /* 2-col portfolio: posiciones a la izquierda, journal+heatmap a la derecha */
   #page-portfolio.active{display:grid;grid-template-columns:1fr 1fr;column-gap:4px;align-items:start;grid-auto-rows:min-content}
-  #page-portfolio .hero,#sec-perf{grid-column:1/-1}
-  #sec-posiciones{grid-column:1;grid-row:3/span 4}
+  #page-portfolio .hero,#sec-perf,#sec-salud{grid-column:1/-1}
+  #sec-posiciones{grid-column:1;grid-row:4/span 4}
   #sec-journal,#sec-heatmap-pf{grid-column:2}
 
   /* páginas con contenido simple: max-width centrado */
@@ -656,6 +666,15 @@ button:focus:not(:focus-visible){outline:none}
       <div class="perf-cell"><div class="perf-label">1 año</div><div class="perf-pct">—</div><div class="perf-usd"></div></div>
     </div>
   </div>
+  <div class="section" id="sec-salud">
+    <div class="section-header">
+      <span class="section-title"><svg class="ico-xs ico" style="color:var(--green)"><use href="#i-target"/></svg> Salud del portafolio</span>
+      <span id="salud-badge" class="badge">—</span>
+    </div>
+    <div class="card" id="salud-content">
+      <div class="loading"><div class="spinner"></div>Calculando…</div>
+    </div>
+  </div>
   <div class="section" id="sec-posiciones">
     <div class="section-header">
       <span class="section-title">Posiciones</span>
@@ -671,9 +690,13 @@ button:focus:not(:focus-visible){outline:none}
   <div class="section" id="sec-journal">
     <div class="section-header">
       <span class="section-title"><svg class="ico-xs ico" style="color:var(--orange)"><use href="#i-news"/></svg> Journal de operaciones</span>
-      <button onclick="openJournalModal()" class="btn btn-primary" style="font-size:.74rem;padding:5px 12px">Registrar</button>
+      <div style="display:flex;gap:6px">
+        <button onclick="analizarJournal()" id="btn-journal-ia" class="btn btn-accent" style="font-size:.74rem;padding:5px 12px">Analizar IA</button>
+        <button onclick="openJournalModal()" class="btn btn-primary" style="font-size:.74rem;padding:5px 12px">Registrar</button>
+      </div>
     </div>
     <div class="section-sub">Cada operación con su motivo · revisa qué razonamientos funcionan</div>
+    <div id="journal-ia" class="card" style="display:none"></div>
     <div id="journal-filters" style="display:none;gap:6px;margin-bottom:6px;flex-wrap:wrap">
       <select id="jf-tipo" class="fsel" onchange="renderJournalList()">
         <option value="all">Todo</option>
@@ -799,6 +822,22 @@ button:focus:not(:focus-visible){outline:none}
   <div class="hero" style="padding-top:20px">
     <div class="hero-label">Ideas de inversión</div>
     <div style="font-size:.82rem;color:var(--muted);margin-top:4px">Oportunidades de entrada · diversificación</div>
+  </div>
+
+  <!-- Simulador ¿Y si compro? -->
+  <div class="section" id="sec-simulador">
+    <div class="section-header">
+      <span class="section-title"><svg class="ico-xs ico" style="color:var(--purple)"><use href="#i-zap"/></svg> ¿Y si compro…?</span>
+    </div>
+    <div class="section-sub">Simula una compra y mira cómo cambia el riesgo de tu portafolio antes de entrar</div>
+    <div class="card" style="padding:12px 14px">
+      <div style="display:flex;gap:8px">
+        <input id="sim-ticker" type="text" placeholder="Ticker (AAPL, BTC…)" autocomplete="off" onkeydown="if(event.key==='Enter')simularCompra()" style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:9px 12px;font-size:.85rem;outline:none;text-transform:uppercase">
+        <input id="sim-monto" type="number" inputmode="decimal" placeholder="USD" onkeydown="if(event.key==='Enter')simularCompra()" style="width:90px;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:9px 12px;font-size:.85rem;outline:none">
+        <button class="btn btn-primary" id="sim-btn" onclick="simularCompra()">Simular</button>
+      </div>
+      <div id="sim-result" style="display:none;margin-top:12px"></div>
+    </div>
   </div>
 
   <!-- Oportunidades de entrada -->
@@ -1148,6 +1187,7 @@ const SECTORS = {
   TSLA:'Consumo discr.', TTWO:'Entretenimiento',
   BLK:'Finanzas', UNH:'Salud',
   VOO:'ETF diversif.', SCHD:'ETF dividendos', VPU:'ETF utilities',
+  VXUS:'ETF internacional', XLV:'ETF salud',
   QUINENCO:'Industrial'
 };
 const COLORS = ['#58a6ff','#3fb950','#ffa657','#d29922','#bc8cff','#f85149','#79c0ff','#56d364','#ff7b72','#e3b341','#da8eff','#7ee787','#ff9f68','#6e90b8'];
@@ -1169,7 +1209,7 @@ const INDICES_CONFIG = [
   {sym:'000001.SS',name:'Shanghai Comp.', region:'asia'},
   {sym:'^AXJO',    name:'ASX 200',        region:'asia'},
 ];
-const SECTOR_COLORS = {'Tecnología':'#58a6ff','Consumo discr.':'#ffa657','Entretenimiento':'#bc8cff','Finanzas':'#3fb950','Salud':'#f85149','ETF diversif.':'#d29922','ETF dividendos':'#79c0ff','ETF utilities':'#56d364','Industrial':'#e3b341','Otros':'#7d8590'};
+const SECTOR_COLORS = {'Tecnología':'#58a6ff','Consumo discr.':'#ffa657','Entretenimiento':'#bc8cff','Finanzas':'#3fb950','Salud':'#f85149','ETF diversif.':'#d29922','ETF dividendos':'#79c0ff','ETF utilities':'#56d364','ETF internacional':'#6e90b8','ETF salud':'#ff7b72','Industrial':'#e3b341','Otros':'#7d8590'};
 
 // ── STATE ─────────────────────────────────────────────────────
 const cache = {}, cacheTs = {};
@@ -1857,7 +1897,9 @@ async function renderPortfolio(){
     renderPosRows(posiciones);
     drawSparklines(posiciones);
     renderPerfPanel((resumen.valor||0), posiciones, resumen); // resumen.valor (O2) YA incluye la caja — no sumarla otra vez
-    calcPortfolioBeta(posiciones);
+    calcPortfolioBeta(posiciones)
+      .then(b => renderSalud(posiciones, resumen, b))
+      .catch(() => renderSalud(posiciones, resumen, null));
     renderJournal();
     buildHeatmap('heatmap-pf-container');
   } catch(e){ console.error('Portfolio:',e); el.innerHTML='<div class="loading">Error al cargar posiciones.</div>'; }
@@ -2622,6 +2664,29 @@ async function callGroq(systemPrompt) {
   return j.choices?.[0]?.message?.content||'Sin respuesta';
 }
 
+// Completación one-shot enrutada por proveedor según la key (Groq gsk_ / Gemini AIza).
+// Antes "Analizar caja" y "Resumen semanal" llamaban a Groq incluso con key de Gemini.
+async function aiComplete(prompt, maxTokens=600){
+  if(!geminiKey) throw new Error('Configura tu API key de Warren en Ajustes → Integraciones.');
+  if(geminiKey.startsWith('gsk_')){
+    const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+geminiKey},
+      body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'user',content:prompt}],max_tokens:maxTokens,temperature:0.6})
+    });
+    const j=await r.json();
+    if(j.error) throw new Error(j.error.message||'Error Groq');
+    return j.choices?.[0]?.message?.content||'Sin respuesta';
+  }
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:maxTokens,temperature:0.6}})
+  });
+  const j=await r.json();
+  if(j.error) throw new Error(j.error.message);
+  return j?.candidates?.[0]?.content?.parts?.[0]?.text||'Sin respuesta';
+}
+const stripMd = s => s.replace(/\*\*/g,'').replace(/\*/g,'').replace(/^#+\s/gm,'');
+
 async function sendChat(){
   const input=document.getElementById('chat-input');
   const msg=input.value.trim();
@@ -2752,6 +2817,76 @@ async function calcPortfolioBeta(posiciones) {
 
   el.textContent = fmt(beta, 2);
   el.style.color = color;
+  return beta;
+}
+
+// ── SALUD DEL PORTAFOLIO ──────────────────────────────────────
+// Diagnóstico determinístico: beta, concentración, drawdowns y caja, cada uno
+// con una acción concreta. Sin IA — se calcula al instante con datos locales.
+function renderSalud(posiciones, resumen, beta) {
+  const el = document.getElementById('salud-content');
+  const badge = document.getElementById('salud-badge');
+  if (!el || !posiciones?.length) return;
+  const activos = posiciones.filter(p => (p.valorUSD || 0) > 0);
+  const totalPos = activos.reduce((s, p) => s + p.valorUSD, 0) || 1;
+  const items = [];
+
+  // 1. Beta 90d — cuánto amplifica al mercado
+  if (beta != null) {
+    const st = beta < 0.9 ? 'ok' : beta <= 1.2 ? 'warn' : 'bad';
+    items.push({ st, label: 'Volatilidad (beta 90d)', val: fmt(beta, 2),
+      accion: st === 'bad' ? `Si el S&P cae 5%, tu portafolio caería ~${fmt(beta * 5, 1)}%. Mira "Reduce el beta" en Ideas.`
+            : st === 'warn' ? 'Riesgo similar al del mercado.'
+            : 'Portafolio defensivo: se mueve menos que el mercado.' });
+  }
+
+  // 2. Concentración por posición
+  const top = [...activos].sort((a, b) => b.valorUSD - a.valorUSD)[0];
+  const topPct = top.valorUSD / totalPos * 100;
+  { const st = topPct > 25 ? 'bad' : topPct > 15 ? 'warn' : 'ok';
+    items.push({ st, label: 'Mayor posición', val: `${top.ticker} ${fmt(topPct, 1)}%`,
+      accion: st === 'ok' ? 'Ninguna posición domina el portafolio.'
+        : `${top.ticker} pesa ${fmt(topPct, 1)}% — una mala noticia suya mueve todo tu patrimonio.` }); }
+
+  // 3. Concentración por sector
+  const secMap = {};
+  activos.forEach(p => { const s = SECTORS[p.ticker] || 'Otros'; secMap[s] = (secMap[s] || 0) + p.valorUSD; });
+  const [topSec, topSecVal] = Object.entries(secMap).sort((a, b) => b[1] - a[1])[0];
+  const secPct = topSecVal / totalPos * 100;
+  { const st = secPct > 45 ? 'bad' : secPct > 30 ? 'warn' : 'ok';
+    items.push({ st, label: 'Mayor sector', val: `${topSec} ${fmt(secPct, 0)}%`,
+      accion: st === 'ok' ? 'Buena repartición por sectores.'
+        : `${fmt(secPct, 0)}% en ${topSec}: un golpe a ese sector te pega ${st === 'bad' ? 'muy ' : ''}fuerte.` }); }
+
+  // 4. Posiciones en drawdown fuerte
+  const heridas = activos.filter(p => p.retorno != null && p.retorno * 100 < -20).sort((a, b) => a.retorno - b.retorno);
+  { const st = heridas.length ? (heridas.some(p => p.retorno * 100 < -35) ? 'bad' : 'warn') : 'ok';
+    items.push({ st, label: 'Posiciones heridas', val: heridas.length ? heridas.map(p => `${p.ticker} ${fmt(p.retorno * 100, 0)}%`).join(' · ') : 'Ninguna',
+      accion: heridas.length ? `¿Comprarías ${heridas[0].ticker} hoy a este precio? Si no, define stop o reduce.`
+        : 'Sin posiciones con pérdida mayor al 20%.' }); }
+
+  // 5. Caja disponible
+  const cajaPct = (resumen?.caja || 0) / (resumen?.valor || 1) * 100;
+  { const st = cajaPct < 5 ? 'warn' : cajaPct > 35 ? 'warn' : 'ok';
+    items.push({ st, label: 'Caja disponible', val: fmt(cajaPct, 1) + '%',
+      accion: cajaPct < 5 ? 'Sin munición: no podrías aprovechar una caída.'
+        : cajaPct > 35 ? 'Mucha plata parada — evalúa entrar gradual (DCA).'
+        : 'Tienes munición para aprovechar caídas.' }); }
+
+  const nBad = items.filter(i => i.st === 'bad').length;
+  const nWarn = items.filter(i => i.st === 'warn').length;
+  const g = nBad ? { c: 'var(--red)', t: 'Frágil' } : nWarn >= 2 ? { c: 'var(--yellow)', t: 'Atención' } : { c: 'var(--green)', t: 'Sólida' };
+  badge.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${g.c};display:inline-block"></span>${g.t}`;
+  badge.style.color = g.c;
+
+  const dot = st => st === 'ok' ? 'var(--green)' : st === 'warn' ? 'var(--yellow)' : 'var(--red)';
+  el.innerHTML = items.map((i, ix) => `<div style="display:flex;gap:10px;padding:10px 14px;${ix < items.length - 1 ? 'border-bottom:1px solid var(--border);' : ''}align-items:flex-start">
+    <span style="width:8px;height:8px;border-radius:50%;background:${dot(i.st)};margin-top:5px;flex-shrink:0"></span>
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span style="font-size:.8rem;font-weight:600">${i.label}</span><span class="num" style="font-size:.8rem;font-weight:700;color:${dot(i.st)}">${i.val}</span></div>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:2px;line-height:1.45">${i.accion}</div>
+    </div>
+  </div>`).join('');
 }
 
 // Cache compartido del heatmap para no re-fetchear si ya se cargó
@@ -3373,6 +3508,118 @@ function closeIdeasSheet() {
   document.getElementById('ideas-sheet-overlay').style.display = 'none';
 }
 
+// ── SIMULADOR "¿Y SI COMPRO?" ─────────────────────────────────
+// Impacto cuantitativo de una compra hipotética sobre el portafolio real:
+// beta antes/después, correlación con lo que ya tienes, pesos y veredicto.
+// Todo client-side con los mismos datos de Yahoo que usan heatmap y beta.
+const SIM_CRYPTO = new Set(['BTC','ETH','SOL','BNB','XRP','ADA','DOGE','DOT','LINK','AVAX']);
+
+function _dailyRets(closes){ return closes.slice(1).map((v,i)=>(v-closes[i])/closes[i]); }
+
+// Beta de una serie de retornos contra otra (SPY)
+function _betaOf(rets, benchRets){
+  const n=Math.min(rets.length, benchRets.length);
+  if(n<10) return null;
+  const a=rets.slice(-n), b=benchRets.slice(-n);
+  const ma=a.reduce((s,v)=>s+v,0)/n, mb=b.reduce((s,v)=>s+v,0)/n;
+  let cov=0, vb=0;
+  for(let i=0;i<n;i++){ cov+=(a[i]-ma)*(b[i]-mb); vb+=(b[i]-mb)**2; }
+  return vb ? cov/vb : null;
+}
+
+// Retornos diarios del portafolio ponderados por valor
+function _pfWeightedReturns(entries){ // entries: [{rets, w}]
+  if(!entries.length) return [];
+  const n=Math.min(...entries.map(e=>e.rets.length));
+  const wsum=entries.reduce((s,e)=>s+e.w,0)||1;
+  return Array.from({length:n},(_,d)=>entries.reduce((s,e)=>s+(e.w/wsum)*e.rets[e.rets.length-n+d],0));
+}
+
+async function simularCompra(){
+  const tk=document.getElementById('sim-ticker').value.trim().toUpperCase();
+  const monto=parseFloat(String(document.getElementById('sim-monto').value).replace(',','.'));
+  const el=document.getElementById('sim-result');
+  const btn=document.getElementById('sim-btn');
+  if(!tk){ alert('Escribe un ticker'); return; }
+  if(isNaN(monto)||monto<=0){ alert('Ingresa el monto en USD'); return; }
+  btn.disabled=true; btn.textContent='…';
+  el.style.display='block';
+  el.innerHTML='<div class="loading"><div class="spinner"></div>Calculando impacto…</div>';
+  try{
+    const yfT=SIM_CRYPTO.has(tk)?tk+'-USD':(tk==='QUINENCO'?'QUINENCO.SN':tk);
+    const {resumen,posiciones}=await get('portafolio');
+    const activos=(posiciones||[]).filter(p=>(p.valorUSD||0)>0);
+    if(!activos.length) throw new Error('No hay posiciones para comparar');
+    const totalPos=activos.reduce((s,p)=>s+p.valorUSD,0);
+    const [closesMap,candJ,spyJ]=await Promise.all([
+      getPfCloses(activos.map(p=>p.ticker)),
+      fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yfT)}?interval=1d&range=3mo`),
+      fetchYF('https://query1.finance.yahoo.com/v8/finance/chart/SPY?interval=1d&range=3mo')
+    ]);
+    const candCloses=(candJ?.chart?.result?.[0]?.indicators?.quote?.[0]?.close||[]).filter(v=>v!=null);
+    if(candCloses.length<15) throw new Error(`No encontré historial para ${tk} — ¿ticker correcto?`);
+    const spyCloses=(spyJ?.chart?.result?.[0]?.indicators?.quote?.[0]?.close||[]).filter(v=>v!=null);
+    const candRets=_dailyRets(candCloses), spyRets=_dailyRets(spyCloses);
+
+    // Correlación de la nueva posición con cada una de las actuales
+    const corrs=[];
+    activos.forEach(p=>{
+      const c=closesMap[p.ticker];
+      if(c&&c.length>10){ const r=pearson(_dailyRets(c),candRets); if(r!=null) corrs.push({t:p.ticker,r,w:p.valorUSD}); }
+    });
+    const wsum=corrs.reduce((s,c)=>s+c.w,0)||1;
+    const avgCorr=corrs.length?corrs.reduce((s,c)=>s+c.r*c.w,0)/wsum:null;
+    const topCorr=corrs.length?[...corrs].sort((a,b)=>Math.abs(b.r)-Math.abs(a.r))[0]:null;
+
+    // Beta del portafolio antes y después de la compra
+    const entries=activos.map(p=>({rets:_dailyRets(closesMap[p.ticker]||[]),w:p.valorUSD})).filter(e=>e.rets.length>10);
+    const betaAntes=_betaOf(_pfWeightedReturns(entries),spyRets);
+    const betaDesp=_betaOf(_pfWeightedReturns([...entries,{rets:candRets,w:monto}]),spyRets);
+    const candBeta=_betaOf(candRets,spyRets);
+
+    // Pesos
+    const totalDesp=totalPos+monto;
+    const pesoNuevo=monto/totalDesp*100;
+    const yaLaTengo=activos.find(p=>p.ticker===tk);
+
+    // Veredicto determinístico
+    const v=[];
+    if(avgCorr!=null){
+      if(avgCorr>=0.6) v.push(`${tk} se mueve casi igual que lo que ya tienes (correlación ${fmt(avgCorr,2)}${topCorr?`, sobre todo con ${topCorr.t}`:''}): no diversifica, amplifica.`);
+      else if(avgCorr>=0.35) v.push(`Diversificación moderada: correlación ${fmt(avgCorr,2)} con tu portafolio.`);
+      else v.push(`Diversifica de verdad: correlación ${fmt(avgCorr,2)} con tu portafolio actual.`);
+    }
+    if(betaAntes!=null&&betaDesp!=null){
+      const d=betaDesp-betaAntes;
+      if(d>0.03) v.push(`Sube el riesgo global del portafolio (beta ${fmt(betaAntes,2)} → ${fmt(betaDesp,2)}).`);
+      else if(d<-0.03) v.push(`Baja el riesgo global del portafolio (beta ${fmt(betaAntes,2)} → ${fmt(betaDesp,2)}).`);
+      else v.push(`El riesgo global casi no cambia (beta ~${fmt(betaDesp??betaAntes,2)}).`);
+    }
+    if(yaLaTengo) v.push(`Ya tienes ${tk} (${fmt(yaLaTengo.valorUSD/totalPos*100,1)}% del portafolio): esto es promediar, no diversificar.`);
+    if(pesoNuevo>20) v.push(`Sería el ${fmt(pesoNuevo,1)}% de tu portafolio de una sola vez — considera entrar por partes.`);
+    if(monto>(resumen?.caja||0)) v.push(`Tu caja ($${fmt(resumen?.caja||0)}) no alcanza: necesitarías un aporte externo.`);
+
+    const row=(l,a,b,cls='')=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:.78rem;color:var(--muted)">${l}</span>
+      <span class="num ${cls}" style="font-size:.82rem;font-weight:700">${a}${b!=null?` <span style="color:var(--faint);font-weight:400">→</span> ${b}`:''}</span></div>`;
+    const corrLabel=avgCorr==null?'—':Math.abs(avgCorr)<0.2?'Muy baja':Math.abs(avgCorr)<0.4?'Baja':Math.abs(avgCorr)<0.6?'Moderada':'Alta';
+    const dBeta=(betaAntes!=null&&betaDesp!=null)?betaDesp-betaAntes:0;
+
+    el.innerHTML=`
+      ${row('Beta del portafolio', betaAntes!=null?fmt(betaAntes,2):'—', betaDesp!=null?`<span style="color:${dBeta>0.03?'var(--red)':dBeta<-0.03?'var(--green)':'var(--text)'}">${fmt(betaDesp,2)}</span>`:'—')}
+      ${row(`Beta de ${tk} (vs SPY)`, candBeta!=null?fmt(candBeta,2):'—', null)}
+      ${row('Correlación con tu portafolio', avgCorr!=null?`${avgCorr>=0?'+':''}${fmt(avgCorr,2)} · ${corrLabel}`:'—', null)}
+      ${topCorr?row('Más parecido a', `${topCorr.t} (${topCorr.r>=0?'+':''}${fmt(topCorr.r,2)})`, null):''}
+      ${row('Peso de la nueva posición', `<span style="color:${pesoNuevo>20?'var(--red)':pesoNuevo>12?'var(--yellow)':'var(--green)'}">${fmt(pesoNuevo,1)}%</span>`, null)}
+      <div style="margin-top:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:.76rem;line-height:1.6;color:var(--text)">${v.join(' ')}</div>
+      <div style="font-size:.62rem;color:var(--faint);margin-top:6px">Basado en 3 meses de datos diarios. Referencial, no es asesoría financiera.</div>`;
+  }catch(e){
+    el.innerHTML=`<div style="color:var(--red);font-size:.82rem;padding:4px 0">${esc(e.message)}</div>`;
+  }finally{
+    btn.disabled=false; btn.textContent='Simular';
+  }
+}
+
 // ── BALANCE TOGGLE ─────────────────────────────────────────────
 // El difuminado vive en CSS (body.balance-hidden …) para cubrir también los
 // valores que se re-renderizan (posiciones, panel de rendimiento, Binance).
@@ -3482,6 +3729,69 @@ function renderJournalList() {
       ${e.motivo ? `<div style="font-size:.75rem;color:var(--muted);line-height:1.45">${esc(e.motivo)}</div>` : ''}
     </div>`;
   }).join('');
+}
+
+// ── ANÁLISIS IA DEL JOURNAL ───────────────────────────────────
+// Cruza los MOTIVOS de cada operación con su resultado real (retorno actual
+// para posiciones abiertas) y detecta qué razonamientos funcionan.
+async function analizarJournal() {
+  const btn = document.getElementById('btn-journal-ia');
+  const el  = document.getElementById('journal-ia');
+  if (!el) return;
+  if (!geminiKey) {
+    el.style.display = 'block';
+    el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;padding:12px 16px">Configura tu API key de Warren en Ajustes → Integraciones.</div>';
+    return;
+  }
+  if (!_journalEntries.length) {
+    try { await renderJournal(); } catch {}
+    if (!_journalEntries.length) {
+      el.style.display = 'block';
+      el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;padding:12px 16px">Aún no hay operaciones en el journal para analizar.</div>';
+      return;
+    }
+  }
+  btn.disabled = true; btn.textContent = 'Analizando…';
+  el.style.display = 'block';
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Cruzando motivos con resultados…</div>';
+  try {
+    const posiciones = cache['portafolio']?.posiciones || lastPosiciones || [];
+    const retActual = {};
+    posiciones.forEach(p => { if (p.retorno != null) retActual[p.ticker] = (p.retorno >= 0 ? '+' : '') + (p.retorno * 100).toFixed(1) + '%'; });
+    const ops = _journalEntries.slice(0, 40).map(e => {
+      const f = e.fecha ? new Date(e.fecha).toLocaleDateString('es-CL') : '?';
+      const extra = e.tipo === 'Compra' && retActual[e.ticker] ? ` [retorno actual de la posición: ${retActual[e.ticker]}]` : '';
+      return `${f} ${e.tipo} ${e.ticker} ${e.cantidad || ''} @ $${e.precio}${extra} — Motivo: "${e.motivo || 'sin motivo registrado'}"`;
+    }).join('\n');
+
+    const prompt = `Eres Warren, mi coach de trading personal. Este es mi journal de operaciones reales, con el retorno ACTUAL de las posiciones que sigo abiertas:
+
+${ops}
+
+Analiza MIS patrones de decisión:
+1. Agrupa mis motivos en 2-4 patrones de razonamiento (ej: "compra por momentum", "compra por dip", "venta defensiva").
+2. Para cada patrón: cuántas operaciones hay y cómo les fue (usa el retorno actual de las abiertas; para las ventas compara el precio de venta con las compras previas del mismo ticker).
+3. Sé directo y honesto: qué razonamiento me está haciendo ganar plata y cuál me está costando.
+
+Termina con:
+REGLAS PARA MI
+[2 reglas de una línea basadas en MI historial concreto, no consejos genéricos]
+
+Máximo 220 palabras, español chileno (tú, no vos), sin markdown.`;
+
+    const text = stripMd(await aiComplete(prompt, 500));
+    el.innerHTML = `<div style="padding:14px 16px">
+      <div style="font-size:.82rem;line-height:1.7;white-space:pre-wrap">${esc(text)}</div>
+      <div style="margin-top:10px;font-size:.66rem;color:var(--faint);display:flex;justify-content:space-between">
+        <span>${_journalEntries.length} operaciones analizadas</span>
+        <span>${new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})}</span>
+      </div>
+    </div>`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--red);font-size:.82rem;padding:12px 16px">Error: ${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Analizar IA';
+  }
 }
 
 let _jrEditFila = null; // fila del sheet en edición (null = nueva operación)
@@ -3776,13 +4086,7 @@ SI DECIDES ENTRAR
 
 Sé directo. No des disclaimers genéricos.`;
 
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${geminiKey}` },
-      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], max_tokens: 350 })
-    });
-    const data = await res.json();
-    const text = (data.choices?.[0]?.message?.content || 'Sin respuesta').replace(/\*\*/g,'').replace(/\*/g,'').replace(/^#+\s/gm,'');
+    const text = stripMd(await aiComplete(prompt, 350));
 
     el.innerHTML = `<div style="padding:14px 16px">
       <div style="font-size:.82rem;line-height:1.7;white-space:pre-wrap">${text}</div>
@@ -3865,13 +4169,7 @@ ACCIONES PARA LA PRÓXIMA SEMANA
 
 Máximo 250 palabras. Directo y específico a estas posiciones.`;
 
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${geminiKey}` },
-      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], max_tokens: 600 })
-    });
-    const data = await res.json();
-    const text = (data.choices?.[0]?.message?.content || 'Sin respuesta').replace(/\*\*/g,'').replace(/\*/g,'').replace(/^#+\s/gm,'');
+    const text = stripMd(await aiComplete(prompt, 600));
 
     el.innerHTML = `<div style="padding:14px 16px">
       <div style="font-size:.82rem;line-height:1.7;white-space:pre-wrap;color:var(--text)">${text}</div>
