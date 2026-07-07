@@ -4391,6 +4391,15 @@ setInterval(async () => {
   try {
     const d = await get('portafolio');
     if (pfSnap(d) === _pfSnapshot) return;
+    // Los tickers pueden haber cambiado (compra/venta hecha en el Sheet o en
+    // otra pestaña, sin pasar por saveJournalEntry): _pfClosesPromise/heatmap/
+    // ideas quedan memoizados con el set VIEJO de tickers si no se limpian acá.
+    // Bug real detectado: el beta se recalculaba con precios de 3m del set
+    // viejo → posiciones nuevas quedaban excluidas y el número no reflejaba
+    // el portafolio real (ni cambiaba al agregar/vender posiciones).
+    _pfClosesPromise = null;
+    _heatmapHTML = null;
+    _ideasData = null;
     if (curPage === 'home') renderHome();
     else renderPortfolio();
   } catch (e) {}
