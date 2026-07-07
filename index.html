@@ -478,9 +478,10 @@ button,.pos-row,.set-row,.platform-btn,.idx-row,.idea-card{-webkit-touch-callout
 :focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:8px}
 button:focus:not(:focus-visible){outline:none}
 
-/* Sparklines: se "dibujan" al renderizar (pathLength=1 normaliza el largo) */
+/* Sparklines: se "dibujan" SOLO en la primera pintada (dentro de .pos-list-anim);
+   en refrescos posteriores aparecen al tiro sin re-animarse */
 @keyframes sparkDraw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
-.spark polyline{stroke-dasharray:1;stroke-dashoffset:1;animation:sparkDraw .75s cubic-bezier(.45,0,.2,1) forwards}
+.pos-list-anim .spark polyline{stroke-dasharray:1;stroke-dashoffset:1;animation:sparkDraw .75s cubic-bezier(.45,0,.2,1) forwards}
 
 /* Respeta a quien prefiere menos movimiento */
 @media(prefers-reduced-motion:reduce){
@@ -1834,9 +1835,14 @@ function switchEvo(mode){
 // ── PORTFOLIO ─────────────────────────────────────────────────
 // Cierres 3 meses de todos los tickers — un solo fetch compartido por
 // heatmap, beta y sparklines
-let _pfClosesPromise = null;
+// Memo keyed por el SET de tickers: si las posiciones cambian (compra/venta,
+// incluso hecha directo en el Sheet), el memo viejo se descarta solo. Antes
+// ignoraba el argumento → beta/heatmap/sparklines usaban precios del set viejo.
+let _pfClosesPromise = null, _pfClosesKey = '';
 function getPfCloses(tickers) {
-  if (_pfClosesPromise) return _pfClosesPromise;
+  const key = [...tickers].sort().join(',');
+  if (_pfClosesPromise && key === _pfClosesKey) return _pfClosesPromise;
+  _pfClosesKey = key;
   const yfSym = t => t === 'QUINENCO' ? 'QUINENCO.SN' : t;
   _pfClosesPromise = Promise.all(tickers.map(t =>
     fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yfSym(t))}?interval=1d&range=3mo`)
@@ -1858,7 +1864,8 @@ function skelRows(n = 6) {
 // Count-up animado para el total del hero
 function countUp(el, target, fmtFn, dur = 650) {
   if (!el) return;
-  const startTxt = el.textContent.replace(/[^0-9.]/g, '');
+  // Conservar el signo (incluye el minus unicode "−" que usa la app)
+  const startTxt = el.textContent.replace('−','-').replace(/[^0-9.\-]/g, '');
   const start = parseFloat(startTxt) || 0;
   if (Math.abs(start - target) < 0.01) { el.textContent = fmtFn(target); return; }
   const t0 = performance.now();
@@ -1893,7 +1900,11 @@ async function renderPortfolio(){
     retEl.textContent=fmtPct(resumen.retorno);
     retEl.className='meta-value '+cls(resumen.retorno);
     _pfSnapshot=pfSnap({resumen,posiciones});
-    document.getElementById('pos-list')?.classList.add('pos-list-anim'); // entrada escalonada al cargar
+    // Entrada escalonada SOLO en la primera pintada; los refrescos de datos
+    // (auto-refresh 100s) actualizan números sin re-animar toda la lista
+    const listEl=document.getElementById('pos-list');
+    if(listEl && !listEl.querySelector('.pos-row')) listEl.classList.add('pos-list-anim');
+    else listEl?.classList.remove('pos-list-anim');
     renderPosRows(posiciones);
     drawSparklines(posiciones);
     renderPerfPanel((resumen.valor||0), posiciones, resumen); // resumen.valor (O2) YA incluye la caja — no sumarla otra vez
@@ -2109,7 +2120,11 @@ async function drawSparklines(posiciones){
 }
 
 // ── STOCK DETAIL ──────────────────────────────────────────────
+// Guard de carrera: si el usuario abre otra acción antes de que terminen los
+// fetch de la anterior, las respuestas viejas NO deben pisar la vista nueva.
+let _stockSeq = 0;
 async function renderStock(ticker){
+  const seq = ++_stockSeq;
   ['s-header','s-ticker','s-name','s-price','s-varday'].forEach(id=>{
     document.getElementById(id).textContent=id.includes('header')||id.includes('ticker')?ticker:'—';
   });
@@ -2120,6 +2135,7 @@ async function renderStock(ticker){
 
   try {
     const {posiciones}=await get('portafolio');
+    if(seq!==_stockSeq) return; // el usuario ya abrió otra acción
     const p=posiciones.find(x=>x.ticker===ticker);
     if(p){
       document.getElementById('s-name').textContent=p.nombre;
@@ -2141,17 +2157,17 @@ async function renderStock(ticker){
         ...(p.objetivo>0?[['Objetivo',usd(p.objetivo)]]:[]),['Estado',p.status||'—']
       ].map(([l,r])=>`<div class="pos-detail-row"><span class="pdr-l">${l}</span><span class="pdr-r">${r}</span></div>`).join('');
       // Fundamentales con contexto de la posición del usuario
-      fetchFundamentals(ticker, p.cantidad);
+      fetchFundamentals(ticker, p.cantidad, seq);
     }
   } catch(e){ console.error('Stock detail:',e); }
 
   renderTV(ticker);
-  fetchYahoo(ticker);
-  fetchStockNews(ticker);
+  fetchYahoo(ticker, seq);
+  fetchStockNews(ticker, seq);
 }
 
 // ── FUNDAMENTALES ─────────────────────────────────────────────
-async function fetchFundamentals(ticker, cantidad){
+async function fetchFundamentals(ticker, cantidad, seq){
   document.getElementById('fund-section').style.display='block';
   document.getElementById('div-section').style.display='none';
   document.getElementById('fund-grid').innerHTML='<div class="loading" style="grid-column:1/-1"><div class="spinner"></div>Cargando…</div>';
@@ -2238,6 +2254,7 @@ async function fetchFundamentals(ticker, cantidad){
   }
 
   // ── 4) Render ────────────────────────────────────────────────
+  if(seq!==undefined && seq!==_stockSeq) return; // llegó tarde: ya se abrió otra acción
   if(!q){
     // No data from any source
     let msg = ticker==='QUINENCO'
@@ -2321,10 +2338,11 @@ function renderTV(ticker){
   }
 }
 
-async function fetchYahoo(ticker){
+async function fetchYahoo(ticker, seq){
   const yf=ticker==='QUINENCO'?'QUINENCO.SN':ticker;
   try {
     const j=await fetchYF(`https://query1.finance.yahoo.com/v8/finance/chart/${yf}?interval=1d&range=1y`);
+    if(seq!==undefined && seq!==_stockSeq) return;
     const closes=j?.chart?.result?.[0]?.indicators?.quote?.[0]?.close||[];
     const clean=closes.filter(v=>v!=null);
     if(clean.length<2) return;
@@ -2336,11 +2354,12 @@ async function fetchYahoo(ticker){
   } catch(e){ console.warn('Yahoo chart:',e.message); }
 }
 
-async function fetchStockNews(ticker){
+async function fetchStockNews(ticker, seq){
   const el=document.getElementById('news-list');
   const yf=ticker==='QUINENCO'?'QUINENCO.SN':ticker;
   try {
     const j=await fetchYF(`https://query1.finance.yahoo.com/v1/finance/search?q=${yf}&newsCount=8&enableFuzzyQuery=false`);
+    if(seq!==undefined && seq!==_stockSeq) return;
     const news=j?.news||[];
     if(!news.length){ el.innerHTML='<div class="loading">Sin noticias disponibles.</div>'; return; }
     el.innerHTML=news.map(n=>`<a class="news-link" href="${esc(n.link)}" target="_blank" rel="noopener noreferrer"><div class="news-item"><div class="news-title">${esc(n.title)}</div><div class="news-meta">${esc(n.publisher)} · ${relTime(n.providerPublishTime)}</div></div></a>`).join('');
@@ -3117,6 +3136,14 @@ async function buildIdeas() {
     } catch {}
   }));
 
+  // Sin NINGÚN dato de mercado = problema de red, no "cero oportunidades".
+  // No cachear _ideasData para que la próxima visita reintente.
+  if (!Object.keys(priceMap).length) {
+    const msg = '<div class="loading" style="flex-direction:column;gap:4px;text-align:center"><span>No se pudieron cargar los datos de mercado</span><span style="font-size:.72rem;color:var(--muted)">Revisa tu conexión y vuelve a abrir Ideas para reintentar.</span></div>';
+    ['ideas-radar','ideas-lowbeta','ideas-diversify'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = msg; });
+    return;
+  }
+
   // 3. Correlación + variaciones de precio
   const candidates = IDEAS_UNIVERSE.map(a => {
     const prices = priceMap[a.sym];
@@ -3844,6 +3871,7 @@ async function deleteJournal(fila) {
     const res = await fetch(`${API}?action=journal_delete&fila=${fila}&_t=${Date.now()}`).then(r => r.json());
     if (res.error) throw new Error(res.error);
     invalidatePortfolioCaches();
+    await get('portafolio', true); // saltar caché del worker: reflejar el borrado ya
     renderJournal(true);
     renderPortfolio();
     if (res.nota) alert(res.nota);
@@ -3869,8 +3897,11 @@ async function saveJournalEntry() {
     const res = await fetch(url).then(r => r.json());
     if (res.error) throw new Error(res.error);
     closeJournalModal();
-    // El portafolio cambió: invalidar todo lo derivado y re-renderizar
+    // El portafolio cambió: invalidar todo lo derivado y traer datos frescos
+    // saltando el caché de 45s del worker (si no, la operación recién guardada
+    // no aparece y parece que falló)
     invalidatePortfolioCaches();
+    await get('portafolio', true);
     renderJournal(true);
     renderPortfolio();
     if (res.nota) alert(res.nota);
@@ -3938,11 +3969,12 @@ async function renderSemaforo() {
       indicators.push({label:'MA200', value:(pct200>=0?'+':'')+fmt(pct200,1)+'%', sub:l, color:c, score:pct200>0?2:pct200>-8?1:0});
     }
 
-    // Score global — SPY 5d tiene doble peso por ser lo más relevante ahora
-    const scores = indicators.map(i => i.score);
-    const weighted = scores[0]*1 + (scores[1]||0)*2 + (scores[2]||0)*1 + (scores[3]||0)*1; // VIX + 2×5d + 20d + MA200
-    const maxW = 1*2 + 2*2 + 1*2 + 1*2; // 10
-    const ratio = weighted / maxW;
+    // Score global — SPY 5d pesa doble. Normalizado sobre los indicadores
+    // PRESENTES: si falta uno (falla parcial de Yahoo) no cuenta como "malo".
+    const wts = {'VIX':1,'SPY 5d':2,'SPY 20d':1,'MA200':1};
+    let weighted = 0, maxW = 0;
+    indicators.forEach(i => { const w = wts[i.label]||1; weighted += i.score*w; maxW += 2*w; });
+    const ratio = maxW ? weighted / maxW : 0;
     let globalColor, globalLabel;
     if (ratio >= 0.65)      { globalColor='var(--green)';  globalLabel='Favorable'; }
     else if (ratio >= 0.35) { globalColor='var(--yellow)'; globalLabel='Precaución'; }
