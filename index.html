@@ -848,7 +848,7 @@ button:focus:not(:focus-visible){outline:none}
       <svg class="ico-xs ico idea-chevron"><use href="#i-down"/></svg>
     </div>
     <div class="idea-sec-body"><div class="idea-sec-inner">
-      <div class="section-sub">Acciones/ETFs con rating Buy y upside · cripto en sobreventa (RSI) con recorrido al alza</div>
+      <div class="section-sub">Pullbacks con recorrido: RSI en sobreventa, caída fuerte en 30 días, o lejos de su máximo de 3 meses</div>
       <div id="ideas-radar"><div class="loading"><div class="spinner"></div>Buscando oportunidades…</div></div>
     </div></div>
   </div>
@@ -1176,7 +1176,7 @@ const API = 'https://script.google.com/macros/s/AKfycbzf5GTt1JUrftY5sGG2I3LVbFrR
 
 const TV_SYM = {
   TSLA:'NASDAQ:TSLA', NVDA:'NASDAQ:NVDA', ASML:'NASDAQ:ASML',
-  PLTR:'NYSE:PLTR',   VOO:'AMEX:VOO',     TTWO:'NASDAQ:TTWO',
+  PLTR:'NASDAQ:PLTR', VOO:'AMEX:VOO',     TTWO:'NASDAQ:TTWO',
   BLK:'NYSE:BLK',     UNH:'NYSE:UNH',     MSFT:'NASDAQ:MSFT',
   INTU:'NASDAQ:INTU', CRWV:'NASDAQ:CRWV', SCHD:'AMEX:SCHD',
   VPU:'AMEX:VPU',     QUINENCO:'BOLSA:QUINENCO'
@@ -1869,13 +1869,17 @@ function countUp(el, target, fmtFn, dur = 650) {
   const start = parseFloat(startTxt) || 0;
   if (Math.abs(start - target) < 0.01) { el.textContent = fmtFn(target); return; }
   const t0 = performance.now();
+  let finished = false;
   function tick(now) {
     const p = Math.min((now - t0) / dur, 1);
     const ease = 1 - Math.pow(1 - p, 3);
     el.textContent = fmtFn(start + (target - start) * ease);
-    if (p < 1) requestAnimationFrame(tick);
+    if (p < 1) requestAnimationFrame(tick); else finished = true;
   }
   requestAnimationFrame(tick);
+  // Red de seguridad: si rAF no corre (pestaña oculta, ahorro de energía,
+  // throttling de iOS), el valor final se escribe igual y no queda en "...".
+  setTimeout(() => { if (!finished) el.textContent = fmtFn(target); }, dur + 150);
 }
 
 async function renderPortfolio(){
@@ -2434,8 +2438,8 @@ async function renderNoticias(){
   if(allNewsCache.length){ buildNewsChips(); renderNewsList(allNewsCache,activeNewsFilter); return; }
   el.innerHTML=skelRows(6);
 
-  let tickers=['TSLA','NVDA','MSFT','ASML','PLTR','BLK','UNH','INTU'];
-  try { const {posiciones}=await get('portafolio'); tickers=posiciones.map(p=>p.ticker).filter(t=>t!=='QUINENCO').slice(0,7); } catch {}
+  let tickers=['VOO','NVDA','TSLA','PLTR','MSFT','BLK','TTWO','XLV']; // fallback si falla el fetch del portafolio
+  try { const {posiciones}=await get('portafolio'); tickers=posiciones.map(p=>p.ticker).filter(t=>t!=='QUINENCO').slice(0,10); } catch {}
 
   const seen=new Set();
   allNewsCache=[];
@@ -2705,6 +2709,10 @@ async function aiComplete(prompt, maxTokens=600){
   return j?.candidates?.[0]?.content?.parts?.[0]?.text||'Sin respuesta';
 }
 const stripMd = s => s.replace(/\*\*/g,'').replace(/\*/g,'').replace(/^#+\s/gm,'');
+
+// Botón "×" para descartar tarjetas de resultado (análisis IA, simulador).
+// El contenedor debe tener position:relative.
+const cardCloseBtn = id => `<button onclick="document.getElementById('${id}').style.display='none'" aria-label="Cerrar" title="Cerrar" style="position:absolute;top:8px;right:8px;background:var(--surface2);border:1px solid var(--border);border-radius:50%;width:26px;height:26px;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:0;padding:0"><svg class="ico-xs ico"><use href="#i-close"/></svg></button>`;
 
 async function sendChat(){
   const input=document.getElementById('chat-input');
@@ -3122,7 +3130,12 @@ async function buildIdeas() {
   try {
     const {historial} = await get('historial');
     const slice = (historial||[]).slice(-65);
-    portReturns = slice.slice(1).map((h,i) => (h.valor - slice[i].valor) / slice[i].valor);
+    // Neutralizar días con flujos externos (aportes/retiros grandes): un
+    // retiro de -50% en un día NO es retorno de mercado y dominaba el cálculo
+    // de correlación (Pearson), volviendo basura el ranking de diversificación.
+    portReturns = slice.slice(1)
+      .map((h,i) => (h.valor - slice[i].valor) / slice[i].valor)
+      .map(r => Math.abs(r) > 0.12 ? 0 : r);
   } catch(e) { console.warn('Ideas historial:', e); }
 
   // 2. Precio histórico de todos los candidatos (Yahoo Finance, paralelo)
@@ -3188,18 +3201,21 @@ async function buildIdeas() {
     try { sessionStorage.setItem(FMP_CACHE, JSON.stringify({data:fmpData, ts:Date.now()})); } catch {}
   }
 
-  // 5. Enriquecer con datos FMP (acciones) o técnicos (cripto)
+  // 5. Enriquecer: target de analistas (FMP, si algún día revive) o técnico
+  // (recuperación al máximo de 3 meses) — para TODOS los activos, no solo
+  // cripto. FMP murió en ago 2025, así que sin esto las acciones quedaban
+  // sin upside y el radar se vaciaba apenas el mercado dejaba de caer.
   const enriched = candidates.map(a => {
     const f = fmpData[a.sym] || {};
     let targetPrice = f.targetPrice || null;
+    let targetSrc = targetPrice ? 'analistas' : null;
     let upside = targetPrice && a.currentPrice ? (targetPrice - a.currentPrice) / a.currentPrice * 100 : null;
-    // Cripto: sin target de analistas → objetivo = recuperación al máximo de 3
-    // meses (target de swing conservador); upside = cuánto falta para llegar.
-    if (a.type === 'crypto' && a.high3mo > a.currentPrice) {
+    if (!targetPrice && a.high3mo > a.currentPrice * 1.02) {
       targetPrice = a.high3mo;
+      targetSrc = 'tech';
       upside = (a.high3mo - a.currentPrice) / a.currentPrice * 100;
     }
-    return {...a, fmpRating: f.rating ? {rating:f.rating, score:f.rScore} : null, targetPrice, upside, beta: (IDEAS_BETA[a.sym]!=null?IDEAS_BETA[a.sym]:null)};
+    return {...a, fmpRating: f.rating ? {rating:f.rating, score:f.rScore} : null, targetPrice, targetSrc, upside, beta: (IDEAS_BETA[a.sym]!=null?IDEAS_BETA[a.sym]:null)};
   });
 
   // 6. Diversificación: menor correlación absoluta
@@ -3221,10 +3237,14 @@ async function buildIdeas() {
       const hasUpside = a.upside != null && a.upside > 15;
       return (oversold || bigDip) && hasUpside;
     }
+    // Acciones/ETFs: mismos criterios técnicos que cripto (FMP murió, no hay
+    // rating). Pullback real = sobreventa, caída fuerte en 30d, o lejos de su
+    // máximo de 3 meses con recorrido de vuelta.
     const goodRating = a.fmpRating && ['Strong Buy','Buy'].includes(a.fmpRating.rating);
-    const goodUpside = a.upside != null && a.upside > 10;
-    // Mostrar si tiene rating bueno, O si tiene upside > 10%, O si cayó > 10% (sin importar rating)
-    return goodRating || goodUpside || (a.change30d != null && a.change30d < -10);
+    const oversold   = a.rsi != null && a.rsi < 45;
+    const bigDip     = a.change30d != null && a.change30d < -10;
+    const offHigh    = a.drawdown != null && a.drawdown <= -8 && a.upside != null && a.upside >= 8;
+    return goodRating || oversold || bigDip || offHigh;
   })
   .sort((a,b) => {
     const sa = (a.upside||0) + Math.max(0, -(a.change30d||0));
@@ -3256,9 +3276,10 @@ function _ideaScore(a, section) {
     score += a.fmpRating ? (a.fmpRating.score/5) * 30 : 15;      // calidad (rating)
     score += a.corr!=null ? Math.max(0, (1-Math.abs(a.corr))*15) : 8; // baja correlación suma
   } else {
-    // Acciones: rating de analistas. Cripto: RSI (más sobreventa = mejor entrada).
-    if (a.type === 'crypto') score += a.rsi!=null ? Math.min(40, Math.max(5, (50-a.rsi)*2 + 15)) : 20;
-    else                     score += a.fmpRating ? (a.fmpRating.score/5)*40 : 15;
+    // Rating de analistas si existe (FMP); si no, RSI para todos los tipos
+    // (más sobreventa = mejor entrada).
+    if (a.fmpRating) score += (a.fmpRating.score/5)*40;
+    else             score += a.rsi!=null ? Math.min(40, Math.max(5, (50-a.rsi)*2 + 15)) : 20;
     score += a.upside!=null ? Math.min(35, Math.max(0, a.upside*1.2)) : 10;      // upside
     score += a.change30d!=null ? Math.min(25, Math.max(0, -a.change30d*1.5)) : 10; // dip
   }
@@ -3297,7 +3318,7 @@ function _renderIdeas() {
   const betaEl  = document.getElementById('ideas-lowbeta');
   if (!divEl || !radarEl) return;
   divEl.innerHTML   = diversify.length ? diversify.map(_ideaCard).join('') : '<div class="loading">Sin datos suficientes para calcular correlaciones.</div>';
-  radarEl.innerHTML = radar.length     ? radar.map(_ideaCard).join('')     : '<div class="loading" style="flex-direction:column;gap:4px;text-align:center"><span>Sin oportunidades detectadas</span><span style="font-size:.72rem;color:var(--muted)">No hay activos con caída significativa y rating Buy / Strong Buy.</span></div>';
+  radarEl.innerHTML = radar.length     ? radar.map(_ideaCard).join('')     : '<div class="loading" style="flex-direction:column;gap:4px;text-align:center"><span>Sin oportunidades de entrada ahora</span><span style="font-size:.72rem;color:var(--muted)">Ningún activo del universo está en sobreventa (RSI&lt;45), con caída &gt;10% en 30 días, ni &gt;8% bajo su máximo de 3 meses — típico cuando el mercado está en máximos. Paciencia &gt; FOMO.</span></div>';
   if (betaEl) betaEl.innerHTML = (lowbeta&&lowbeta.length) ? lowbeta.map(_ideaCard).join('') : '<div class="loading">Sin datos de beta suficientes.</div>';
 }
 
@@ -3321,9 +3342,15 @@ function _ideaCard(a) {
     const rsiPart = a.rsi!=null ? `RSI <b>${fmt(a.rsi,0)}</b>${a.rsi<40?' <span class="positive">(sobreventa)</span>':''}` : 'Cripto';
     const upPart  = a.upside!=null ? ` · Upside a máx: <b class="positive">+${fmt(a.upside,0)}%</b>` : '';
     reason = `${rsiPart}${upPart} · 30d: ${chgStr}`;
-  } else {
+  } else if (a.fmpRating) {
     const upsidePart = a.upside!=null ? ` · Upside: <b class="positive">+${fmt(a.upside,1)}%</b>` : '';
-    reason = `<b>${a.fmpRating?.rating||'Buy'}</b> según analistas${upsidePart} · 30d: ${chgStr}`;
+    reason = `<b>${a.fmpRating.rating}</b> según analistas${upsidePart} · 30d: ${chgStr}`;
+  } else {
+    // Sin rating de analistas (FMP muerto): razón técnica real, no inventada
+    const rsiPart = a.rsi!=null ? `RSI <b>${fmt(a.rsi,0)}</b>${a.rsi<45?' <span class="positive">(sobreventa)</span>':''}` : 'Técnico';
+    const ddPart  = a.drawdown!=null && a.drawdown<-2 ? ` · ${fmt(a.drawdown,1)}% bajo su máx 3m` : '';
+    const upPart  = a.upside!=null ? ` · recorrido <b class="positive">+${fmt(a.upside,0)}%</b>` : '';
+    reason = `${rsiPart}${ddPart}${upPart} · 30d: ${chgStr}`;
   }
 
   const badges = a.platforms.map(p => {
@@ -3428,7 +3455,7 @@ function openIdea(sym) {
   const chg7Cls  = a.change7d!=null  ? (a.change7d>=0?'positive':'negative')  : '';
   const corrStr  = a.corr!==null ? (a.corr>=0?'+':'')+fmt(a.corr,2) : '—';
 
-  const objLabel = a.type==='crypto' ? 'Objetivo: máximo de 3 meses' : 'Precio objetivo analistas';
+  const objLabel = a.targetSrc==='analistas' ? 'Precio objetivo analistas' : 'Objetivo: máximo de 3 meses';
   const upsideRow = (a.upside!=null && a.targetPrice!=null)
     ? `<div class="fund-card" style="grid-column:1/-1">
         <div style="display:flex;justify-content:space-between;align-items:center">
@@ -3633,6 +3660,7 @@ async function simularCompra(){
     const dBeta=(betaAntes!=null&&betaDesp!=null)?betaDesp-betaAntes:0;
 
     el.innerHTML=`
+      <div style="position:relative;height:24px"><button onclick="document.getElementById('sim-result').style.display='none'" aria-label="Cerrar" style="position:absolute;top:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:50%;width:24px;height:24px;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:0;padding:0"><svg class="ico-xs ico"><use href="#i-close"/></svg></button></div>
       ${row('Beta del portafolio', betaAntes!=null?fmt(betaAntes,2):'—', betaDesp!=null?`<span style="color:${dBeta>0.03?'var(--red)':dBeta<-0.03?'var(--green)':'var(--text)'}">${fmt(betaDesp,2)}</span>`:'—')}
       ${row(`Beta de ${tk} (vs SPY)`, candBeta!=null?fmt(candBeta,2):'—', null)}
       ${row('Correlación con tu portafolio', avgCorr!=null?`${avgCorr>=0?'+':''}${fmt(avgCorr,2)} · ${corrLabel}`:'—', null)}
@@ -3807,7 +3835,8 @@ REGLAS PARA MI
 Máximo 220 palabras, español chileno (tú, no vos), sin markdown.`;
 
     const text = stripMd(await aiComplete(prompt, 500));
-    el.innerHTML = `<div style="padding:14px 16px">
+    el.innerHTML = `<div style="padding:14px 34px 14px 16px;position:relative">
+      ${cardCloseBtn('journal-ia')}
       <div style="font-size:.82rem;line-height:1.7;white-space:pre-wrap">${esc(text)}</div>
       <div style="margin-top:10px;font-size:.66rem;color:var(--faint);display:flex;justify-content:space-between">
         <span>${_journalEntries.length} operaciones analizadas</span>
@@ -4120,7 +4149,8 @@ Sé directo. No des disclaimers genéricos.`;
 
     const text = stripMd(await aiComplete(prompt, 350));
 
-    el.innerHTML = `<div style="padding:14px 16px">
+    el.innerHTML = `<div style="padding:14px 34px 14px 16px;position:relative">
+      ${cardCloseBtn('caja-analisis')}
       <div style="font-size:.82rem;line-height:1.7;white-space:pre-wrap">${text}</div>
       <div style="margin-top:10px;font-size:.66rem;color:var(--faint);display:flex;justify-content:space-between">
         <span>Caja: ${usd(caja)} · Semáforo: ${semaforo.label}</span>
@@ -4203,7 +4233,8 @@ Máximo 250 palabras. Directo y específico a estas posiciones.`;
 
     const text = stripMd(await aiComplete(prompt, 600));
 
-    el.innerHTML = `<div style="padding:14px 16px">
+    el.innerHTML = `<div style="padding:14px 34px 14px 16px;position:relative">
+      ${cardCloseBtn('ideas-resumen-ia')}
       <div style="font-size:.82rem;line-height:1.7;white-space:pre-wrap;color:var(--text)">${text}</div>
       <div style="margin-top:10px;font-size:.66rem;color:var(--faint);text-align:right">Generado ${new Date().toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})}</div>
     </div>`;
