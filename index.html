@@ -417,7 +417,7 @@ body.balance-hidden #h-total,body.balance-hidden #h-gp,body.balance-hidden #h-re
 
   /* 2-col home: columnas explícitas para no dejar huecos */
   #page-home.active{display:grid;grid-template-columns:1fr 1fr;column-gap:4px;align-items:start;grid-auto-rows:min-content}
-  #page-home .hero,#page-home .market-banner,#page-home .status-bar{grid-column:1/-1}
+  #page-home .hero,#page-home .market-banner,#page-home .status-bar,#sec-pendientes{grid-column:1/-1}
   #sec-semaforo,#sec-evo{grid-column:1}
   #sec-warren,#sec-donut{grid-column:2}
   #sec-platforms{grid-column:1/-1}
@@ -560,6 +560,16 @@ button:focus:not(:focus-visible){outline:none}
     <div class="market-dot" id="market-dot"></div>
     <span id="market-status-text">—</span>
     <span class="market-countdown" id="market-countdown"></span>
+  </div>
+  <!-- Movimientos detectados en el correo del bróker: propuestas que esperan
+       confirmación. Solo se muestra cuando hay algo pendiente. -->
+  <div class="section" id="sec-pendientes" style="display:none">
+    <div class="section-header">
+      <span class="section-title"><svg class="ico-xs ico" style="color:var(--blue)"><use href="#i-wallet"/></svg> Movimientos detectados en tu correo</span>
+      <span class="badge" id="pend-count" style="color:var(--blue)"></span>
+    </div>
+    <div class="section-sub">Revisa el monto y confirma para aplicarlo a tu portafolio</div>
+    <div class="card" id="pendientes-list"></div>
   </div>
   <div class="section" id="sec-semaforo">
     <div class="section-header">
@@ -1662,6 +1672,7 @@ async function renderHome(){
     buildDonut(posiciones);
     buildEvo();
     renderSemaforo();
+    renderPendientes();
   } catch(e){
     console.error('Home:',e);
     document.getElementById('h-total').textContent = '—';
@@ -3569,6 +3580,80 @@ function closeIdeasSheet() {
   document.getElementById('ideas-sheet-overlay').style.display = 'none';
 }
 
+// ── MOVIMIENTOS DETECTADOS EN EL CORREO ───────────────────────
+// El GAS lee los correos del bróker y deja PROPUESTAS en la hoja "Pendientes".
+// Nada toca el portafolio hasta que se confirma acá: si el parser se equivoca,
+// el error se ve y se descarta, no se escribe.
+let _pendientes = [];
+async function renderPendientes() {
+  const sec = document.getElementById('sec-pendientes');
+  const el  = document.getElementById('pendientes-list');
+  if (!sec || !el) return;
+  let lista = [];
+  try { lista = (await get('pendientes', true)).pendientes || []; }
+  catch { sec.style.display = 'none'; return; }
+  _pendientes = lista;
+  if (!lista.length) { sec.style.display = 'none'; return; }
+
+  document.getElementById('pend-count').textContent =
+    lista.length + (lista.length === 1 ? ' pendiente' : ' pendientes');
+  sec.style.display = '';
+
+  el.innerHTML = lista.map(p => {
+    const esFlujo = p.tipo === 'aporte' || p.tipo === 'retiro';
+    const color = p.tipo === 'aporte' ? 'var(--green)' : p.tipo === 'retiro' ? 'var(--orange)'
+                : p.tipo === 'compra' ? 'var(--blue)' : 'var(--red)';
+    const monto = esFlujo
+      ? `<div style="display:flex;align-items:center;gap:6px;margin-top:8px">
+           <span style="font-size:.8rem;color:var(--muted)">US$</span>
+           <input id="pend-monto-${p.fila}" type="number" step="any" inputmode="decimal" value="${(+p.montoUSD||0).toFixed(2)}"
+             style="width:110px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:6px 10px;font-size:.85rem;outline:none">
+           <span style="font-size:.68rem;color:var(--faint)">editable — el tipo de cambio es aproximado</span>
+         </div>`
+      : '';
+    return `<div style="padding:12px 14px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="background:${color}22;color:${color};border-radius:5px;padding:2px 9px;font-size:.66rem;font-weight:700;text-transform:uppercase">${p.tipo}</span>
+        <span style="font-size:.85rem;font-weight:600">${esc(p.detalle)}</span>
+      </div>
+      <div style="font-size:.68rem;color:var(--faint);margin-top:3px">${esc(p.asunto||'')}</div>
+      ${monto}
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="resolverPend(${p.fila},'confirmar')">Confirmar</button>
+        <button class="btn" style="flex:1;justify-content:center;background:var(--surface2);color:var(--muted)" onclick="resolverPend(${p.fila},'descartar')">Descartar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function resolverPend(fila, accion) {
+  const p = _pendientes.find(x => x.fila === fila);
+  if (!p) return;
+  if (accion === 'descartar' && !confirm('¿Descartar este movimiento? No se aplicará a tu portafolio.')) return;
+  const inp = document.getElementById('pend-monto-' + fila);
+  const monto = inp ? parseFloat(String(inp.value).replace(',', '.')) : null;
+  if (accion === 'confirmar' && inp && (isNaN(monto) || monto <= 0)) { alert('Ingresa un monto válido'); return; }
+  const cont = document.getElementById('pendientes-list');
+  cont.style.opacity = '.5';
+  try {
+    const url = `${API}?action=pendiente_resolver&fila=${fila}&accion=${accion}` +
+                (monto ? `&monto=${monto}` : '') + `&_t=${Date.now()}`;
+    const res = await fetch(url).then(r => r.json());
+    if (res.error) throw new Error(res.error);
+    invalidatePortfolioCaches();
+    cache['pendientes'] = null;
+    cache['aportes'] = null;
+    await get('portafolio', true);
+    await renderPendientes();
+    renderHome();
+    if (res.nota) alert(res.nota);
+  } catch (e) {
+    alert('Error: ' + e.message);
+  } finally {
+    cont.style.opacity = '';
+  }
+}
+
 // ── SIMULADOR "¿Y SI COMPRO?" ─────────────────────────────────
 // Impacto cuantitativo de una compra hipotética sobre el portafolio real:
 // beta antes/después, correlación con lo que ya tienes, pesos y veredicto.
@@ -4443,6 +4528,16 @@ function forzarRefresh() {
 
 applyTheme();
 setInterval(applyTheme, 60000); // en modo auto, cambia solo al pasar las 7:00 / 19:00
+
+// Rotar el teléfono (o cambiar el tamaño de ventana) cambia el ancho del
+// contenedor: sin esto los charts quedaban dibujados al ancho anterior.
+(function(){
+  let t = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(t);
+    t = setTimeout(() => { try{ evoChart&&evoChart.resize(); donutChart&&donutChart.resize(); }catch(e){} }, 180);
+  }, {passive:true});
+})();
 
 // ── INIT ──────────────────────────────────────────────────────
 applyBalanceHidden();
