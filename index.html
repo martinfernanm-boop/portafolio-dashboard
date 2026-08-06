@@ -591,7 +591,7 @@ button:focus:not(:focus-visible){outline:none}
       </div>
     </div>
     <div class="chart-box">
-      <canvas id="evo-chart" height="150"></canvas>
+      <div id="evo-wrap" style="height:210px;position:relative"><canvas id="evo-chart"></canvas></div>
       <div style="display:flex;justify-content:center;gap:4px;margin-top:8px">
         <button class="tpill-btn" id="evr-7" onclick="switchEvoRange(7)">1S</button>
         <button class="tpill-btn" id="evr-30" onclick="switchEvoRange(30)">1M</button>
@@ -609,13 +609,13 @@ button:focus:not(:focus-visible){outline:none}
         <button class="tpill-btn" id="donut-sector-btn" onclick="switchDonut('sector')">Sector</button>
       </div>
     </div>
-    <div class="chart-box"><canvas id="donut-chart" height="250"></canvas></div>
+    <div class="chart-box"><div id="donut-wrap" style="height:290px;position:relative"><canvas id="donut-chart"></canvas></div></div>
   </div>
   <div class="section" id="sec-platforms">
     <div class="section-title">Mis plataformas</div>
     <div class="platform-grid">
       <a href="https://www.etoro.com/home" target="_blank" rel="noopener" class="platform-btn">
-        <div class="platform-icon" style="background:#00C176">
+        <div class="platform-icon" style="background:#10110E">
           <img src="https://www.google.com/s2/favicons?domain=etoro.com&sz=64" alt="eToro">
         </div>
         <span class="platform-name">eToro</span>
@@ -1315,6 +1315,10 @@ function navigate(page, extra) {
   if(page==='ideas')     buildIdeas();
   if(page==='crypto')    { renderCrypto(); renderAlertas(); }
   if(page==='ajustes')   renderAjustes();
+  // Los charts a veces se crean con la página oculta o antes de que la grilla
+  // asiente su ancho → quedaban dibujados a media escala (ejes comprimidos,
+  // línea invisible en desktop). Un resize tras el cambio de página los ajusta.
+  requestAnimationFrame(()=>{ try{ evoChart&&evoChart.resize(); donutChart&&donutChart.resize(); }catch(e){} });
 }
 function goBack(){ navigate(prevPage||'home'); }
 function openStock(ticker){
@@ -1687,7 +1691,10 @@ function buildDonut(pos){
   donutChart=new Chart(ctx,{
     type:'doughnut',
     data:{labels,datasets:[{data,backgroundColor:bgColors,borderColor:getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#0a0e17',borderWidth:2,hoverOffset:8}]},
-    options:{responsive:true,cutout:'62%',
+    // maintainAspectRatio:false + contenedor de alto fijo: con el default,
+    // Chart.js escalaba el donut al ANCHO de la columna (en desktop ~700px
+    // → 580px de alto) y desbordaba la tarjeta.
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
       animation:{animateScale:true,animateRotate:true,duration:850,easing:'easeOutQuart'},
       plugins:{
       legend:{display:true,position:'bottom',labels:{color:getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||'#e6edf3',font:{size:11},boxWidth:12,padding:10}},
@@ -1799,7 +1806,7 @@ function renderEvoChart(){
     const datasets=[{data:evoSlice.map(h=>h.valor),borderColor:'#58a6ff',borderWidth:2,fill:true,backgroundColor:grad,pointRadius:0,tension:.3,order:2}];
     if(hasMov) datasets.push({data:movMarks,type:'line',showLine:false,pointRadius:5,pointHoverRadius:8,pointBackgroundColor:movColors,pointBorderColor:'#fff',pointBorderWidth:2,order:1});
     evoChart=new Chart(ctx,{type:'line',data:{labels,datasets},
-      options:{responsive:true,interaction:{intersect:false,mode:'index'},
+      options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},
         plugins:{legend:{display:false},tooltip:{
           filter:item=>!(item.datasetIndex===1 && movMontos[item.dataIndex]==null),
           callbacks:{title:c=>c[0].label,label:c=>{ if(c.datasetIndex!==1) return ' '+usd(c.raw); const m=movMontos[c.dataIndex]; return m>=0?'  ◆ Aporte +'+usd(m):'  ◆ Retiro −'+usd(Math.abs(m)); }}}},
@@ -1818,7 +1825,7 @@ function renderEvoChart(){
     if(benchArr) datasets.push({label:benchLabel,data:benchArr,borderColor:benchColor,borderWidth:1.5,fill:false,pointRadius:0,tension:.3,borderDash:[4,3]});
     const signedPct = v => (v>=0?'+':'')+fmt(v,1)+'%';
     evoChart=new Chart(ctx,{type:'line',data:{labels,datasets},
-      options:{responsive:true,interaction:{intersect:false,mode:'index'},
+      options:{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'index'},
         plugins:{legend:{display:true,position:'top',labels:{color:getComputedStyle(document.documentElement).getPropertyValue('--muted').trim()||'#7d8590',font:{size:10},boxWidth:12,padding:8}},
                  tooltip:{callbacks:{title:c=>c[0].label,label:c=>(c.dataset.label||'')+': '+signedPct(c.raw)}}},
         scales:{x:{ticks:{color:'#7e8898',maxTicksLimit:6,font:{size:10}},grid:{color:'rgba(128,142,165,.14)'}},
