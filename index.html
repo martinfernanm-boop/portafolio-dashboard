@@ -2827,8 +2827,16 @@ async function calcPortfolioBeta(posiciones) {
   if (!validWeightSum || validTickers.length === 0) return;
 
   const n = Math.min(spyReturns.length, ...validTickers.map(t => tickerReturns[t].length));
+  // Alinear por el FINAL de cada serie. Antes se tomaba tickerReturns[t][d]
+  // (los n retornos MÁS ANTIGUOS) mientras al SPY se le tomaban los n MÁS
+  // RECIENTES: si alguna posición tenía menos historia que el resto (una IPO
+  // reciente, por ejemplo), se comparaban ventanas de tiempo distintas y el
+  // beta salía mal para TODO el portafolio.
   const pfReturns = Array.from({length: n}, (_, d) =>
-    validTickers.reduce((s, t) => s + (weights[t] / validWeightSum) * tickerReturns[t][d], 0)
+    validTickers.reduce((s, t) => {
+      const arr = tickerReturns[t];
+      return s + (weights[t] / validWeightSum) * arr[arr.length - n + d];
+    }, 0)
   );
 
   // Beta = Cov(pf, spy) / Var(spy)
