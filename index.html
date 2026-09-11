@@ -1240,10 +1240,16 @@ const fmtDate = ts => ts ? new Date(ts*1000).toLocaleDateString('es-CL',{day:'nu
 const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 // URL del Cloudflare Worker del usuario (también acelera Yahoo y GAS)
-const workerURL = () => (localStorage.getItem('bnc_worker') || '').replace(/\/+$/, '');
+// El worker vive en localStorage, que es POR DISPOSITIVO: configurado en el
+// computador, el teléfono quedaba sin proxy y TODAS las llamadas a Yahoo
+// fallaban (semáforo en NaN). Se usa el worker propio como valor por defecto
+// para que funcione en cualquier dispositivo sin configurar nada.
+const WORKER_DEFAULT = 'https://soft-water-ce6a.martinfernanm.workers.dev';
+const workerURL = () => (localStorage.getItem('bnc_worker') || WORKER_DEFAULT).replace(/\/+$/, '');
 
-// Yahoo Finance: worker propio (con caché 60s) → directo → corsproxy
-const PROXY = 'https://corsproxy.io/?url=';
+// Yahoo Finance: worker propio (caché 60s) → directo.
+// corsproxy.io se ELIMINÓ como respaldo: desde 2026 exige API key de pago y
+// responde 401, así que solo agregaba una llamada perdida antes de fallar.
 async function fetchYF(url) {
   const w = workerURL();
   if (w) {
@@ -1252,14 +1258,10 @@ async function fetchYF(url) {
       if (r.ok) return await r.json();
     } catch {}
   }
-  try {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('status '+r.status);
-    return await r.json();
-  } catch {
-    const r2 = await fetch(PROXY+encodeURIComponent(url));
-    return await r2.json();
-  }
+  // Directo: el navegador lo bloquea por CORS salvo contextos puntuales
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('Yahoo status ' + r.status);
+  return await r.json();
 }
 
 // ── DATA ──────────────────────────────────────────────────────
@@ -2241,8 +2243,7 @@ async function fetchFundamentals(ticker, cantidad, seq){
   if(!q){
     try {
       const yfUrl=`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${yf}`;
-      const j = await fetch('https://corsproxy.io/?url='+encodeURIComponent(yfUrl),
-        {signal: AbortSignal.timeout(7000)}).then(r=>r.json());
+      const j = await fetchYF(yfUrl);
       const r2 = j?.quoteResponse?.result?.[0];
       if(r2){
         q = {
@@ -2390,7 +2391,7 @@ async function fetchNewsFor(query, tag){
     if (w) {
       try { const r=await fetch(`${w}/yf?url=${encodeURIComponent(url)}`,{signal:AbortSignal.timeout(10000)}); if(r.ok) j=await r.json(); } catch {}
     }
-    if (!j) j=await fetch('https://corsproxy.io/?url='+encodeURIComponent(url)).then(r=>r.json());
+    if (!j) j=await fetchYF(url);
     return (j?.news||[]).map(n=>({...n,_ticker:tag}));
   } catch { return []; }
 }
@@ -2573,7 +2574,7 @@ async function fetchIdxNews(simbolo, nombre){
   const query=nombre.split('—')[0].split('-')[0].trim()||simbolo;
   try {
     const url=`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=10&enableFuzzyQuery=false`;
-    const j=await fetch(PROXY+encodeURIComponent(url)).then(r=>r.json());
+    const j=await fetchYF(url);
     const news=j?.news||[];
     if(!news.length){
       el.innerHTML='<div class="loading">Sin noticias disponibles.</div>';
@@ -2679,19 +2680,39 @@ async function callGemini(systemPrompt) {
   throw lastErr||new Error('Todos los modelos Gemini fallaron');
 }
 
+// Groq retira modelos sin aviso (llama-3.3-70b-versatile murió en 2026 y dejó
+// TODA la IA caída: chat, análisis de caja, resumen semanal y newsletter).
+// Se prueba una cadena de modelos y se recuerda el que funcionó, así la próxima
+// baja se absorbe sola en vez de romper todo.
+const GROQ_MODELOS = ['openai/gpt-oss-120b','openai/gpt-oss-20b','qwen/qwen3.8-27b'];
+async function groqChat(messages, maxTokens=1024, temperature=0.7) {
+  const guardado = localStorage.getItem('groq_model');
+  const lista = guardado ? [guardado, ...GROQ_MODELOS.filter(m=>m!==guardado)] : [...GROQ_MODELOS];
+  let ultimo = 'sin respuesta de Groq';
+  for (const modelo of lista) {
+    try {
+      const r = await fetch('https://api.groq.com/openai/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+geminiKey},
+        body:JSON.stringify({model:modelo,messages,max_tokens:maxTokens,temperature})
+      });
+      const j = await r.json();
+      if (j.error) { ultimo = j.error.message || JSON.stringify(j.error); continue; }
+      const txt = j.choices?.[0]?.message?.content;
+      if (!txt) { ultimo = 'respuesta vacía'; continue; }
+      try { localStorage.setItem('groq_model', modelo); } catch {}
+      return txt;
+    } catch(e) { ultimo = e.message; }
+  }
+  throw new Error(ultimo);
+}
+
 async function callGroq(systemPrompt) {
   const messages=[
     {role:'system',content:systemPrompt},
     ...chatHistory.map(m=>({role:m.role==='model'?'assistant':'user',content:m.parts[0].text}))
   ];
-  const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+geminiKey},
-    body:JSON.stringify({model:'llama-3.3-70b-versatile',messages,max_tokens:1024,temperature:0.7})
-  });
-  const j=await r.json();
-  if(j.error) throw new Error(j.error.message||JSON.stringify(j.error));
-  return j.choices?.[0]?.message?.content||'Sin respuesta';
+  return await groqChat(messages, 1024, 0.7);
 }
 
 // Completación one-shot enrutada por proveedor según la key (Groq gsk_ / Gemini AIza).
@@ -2699,13 +2720,7 @@ async function callGroq(systemPrompt) {
 async function aiComplete(prompt, maxTokens=600){
   if(!geminiKey) throw new Error('Configura tu API key de Warren en Ajustes → Integraciones.');
   if(geminiKey.startsWith('gsk_')){
-    const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+geminiKey},
-      body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'user',content:prompt}],max_tokens:maxTokens,temperature:0.6})
-    });
-    const j=await r.json();
-    if(j.error) throw new Error(j.error.message||'Error Groq');
-    return j.choices?.[0]?.message?.content||'Sin respuesta';
+    return await groqChat([{role:'user',content:prompt}], maxTokens, 0.6);
   }
   const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,{
     method:'POST',headers:{'Content-Type':'application/json'},
@@ -3981,13 +3996,18 @@ async function renderSemaforo() {
 
     const indicators = [];
 
-    // 1. VIX — miedo del mercado
-    let vixColor, vixLabel, vixScore;
-    if (vix < 18)      { vixColor='var(--green)';  vixLabel='Calma';      vixScore=2; }
-    else if (vix < 25) { vixColor='var(--yellow)'; vixLabel='Alerta';     vixScore=1; }
-    else if (vix < 35) { vixColor='var(--red)';    vixLabel='Miedo';      vixScore=0; }
-    else               { vixColor='var(--red)';    vixLabel='Pánico';     vixScore=-1; }
-    indicators.push({label:'VIX', value:fmt(vix,1), sub:vixLabel, color:vixColor, score:vixScore});
+    // 1. VIX — miedo del mercado.
+    // Solo se agrega si HAY dato: sin este guard, un VIX indefinido caía al
+    // último else y la app mostraba "NaN · Pánico" (semáforo Adverso) sin
+    // ningún dato detrás — una señal de mercado falsa y alarmante.
+    if (vix != null && !isNaN(vix)) {
+      let vixColor, vixLabel, vixScore;
+      if (vix < 18)      { vixColor='var(--green)';  vixLabel='Calma';  vixScore=2; }
+      else if (vix < 25) { vixColor='var(--yellow)'; vixLabel='Alerta'; vixScore=1; }
+      else if (vix < 35) { vixColor='var(--red)';    vixLabel='Miedo';  vixScore=0; }
+      else               { vixColor='var(--red)';    vixLabel='Pánico'; vixScore=-1; }
+      indicators.push({label:'VIX', value:fmt(vix,1), sub:vixLabel, color:vixColor, score:vixScore});
+    }
 
     // 2. SPY semanal — lo que pasó esta semana (lo más relevante)
     if (spyLast && spy5d) {
@@ -4011,6 +4031,15 @@ async function renderSemaforo() {
       const c = pct200>0?'var(--green)':pct200>-8?'var(--yellow)':'var(--red)';
       const l = pct200>0?'Sobre MA200':'Bajo MA200';
       indicators.push({label:'MA200', value:(pct200>=0?'+':'')+fmt(pct200,1)+'%', sub:l, color:c, score:pct200>0?2:pct200>-8?1:0});
+    }
+
+    // Sin NINGÚN indicador no hay semáforo posible: decirlo, no inventar uno.
+    if (!indicators.length) {
+      badge.innerHTML = 'Sin datos';
+      badge.style.color = 'var(--muted)';
+      window._semaforo = null;
+      el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:14px 12px;line-height:1.6">No se pudieron cargar los datos de mercado.<br><span style="color:var(--blue);cursor:pointer" onclick="renderSemaforo()">Reintentar</span></div>';
+      return;
     }
 
     // Score global — SPY 5d pesa doble. Normalizado sobre los indicadores
