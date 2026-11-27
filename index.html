@@ -383,6 +383,17 @@ body.balance-hidden #h-total,body.balance-hidden #h-gp,body.balance-hidden #h-re
   #idx-news-sheet.open{transform:translateX(-50%) translateY(0)}
 }
 
+/* ── EARNINGS SHEET ── */
+#earn-sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:265}
+#earn-sheet{position:fixed;bottom:64px;left:0;right:0;height:84vh;background:var(--bg);border-top:2px solid var(--border);border-radius:20px 20px 0 0;z-index:270;transform:translateY(calc(100% + 80px));transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden;pointer-events:none}
+#earn-sheet.open{transform:translateY(0);pointer-events:auto}
+.earn-row{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .18s ease,transform .14s cubic-bezier(.34,1.3,.5,1)}
+.earn-row:last-child{border-bottom:none}
+.earn-row:active{background:var(--surface2);transform:scale(.985)}
+.earn-day{width:46px;flex-shrink:0;text-align:center;border-radius:10px;background:var(--surface2);border:1px solid var(--border);padding:5px 0}
+.earn-day-n{font-size:1.05rem;font-weight:700;line-height:1}
+.earn-day-m{font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:1px}
+
 /* ── TOP CORRELACIONES ── */
 .top-corr-title{font-size:.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 6px}
 .top-corr-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:.78rem}
@@ -431,6 +442,7 @@ body.balance-hidden #h-total,body.balance-hidden #h-gp,body.balance-hidden #h-re
   /* páginas con contenido simple: max-width centrado */
   #page-noticias,#page-indices,#page-stock,#page-ideas{max-width:900px;margin:0 auto}
   #ideas-sheet{left:220px;width:calc(100vw - 220px);right:0;bottom:0}
+  #earn-sheet{left:220px;width:calc(100vw - 220px);right:0;bottom:0}
 }
 
 /* ============ MICROINTERACCIONES & PULIDO PRO ============ */
@@ -889,6 +901,9 @@ button:focus:not(:focus-visible){outline:none}
 </div>
 
 <!-- ====== IDEAS DETAIL SHEET ====== -->
+<div id="earn-sheet-overlay" onclick="closeEarnSheet()"></div>
+<div id="earn-sheet"></div>
+
 <div id="ideas-sheet-overlay" onclick="closeIdeasSheet()"></div>
 <div id="ideas-sheet"></div>
 
@@ -2429,25 +2444,151 @@ async function renderEarnings(){
 
 function buildEarningsTable(data,el){
   if(!data.length){
-    el.innerHTML='<div style="color:var(--muted);font-size:.82rem;padding:14px 0;text-align:center">Sin earnings de tu portafolio en los próximos 30 días.</div>';
+    el.innerHTML='<div style="color:var(--muted);font-size:.82rem;padding:14px 0;text-align:center">Sin earnings de tus posiciones en los próximos 30 días.</div>';
     return;
   }
-  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:.82rem">
-    <thead><tr style="color:var(--muted);border-bottom:1px solid var(--border)">
-      <th style="text-align:left;padding:8px 6px">Fecha</th>
-      <th style="text-align:left;padding:8px 6px">Ticker</th>
-    </tr></thead>
-    <tbody>${data.map(e=>{
-      const d=new Date(e.ts);
-      const fecha=d.toLocaleDateString('es-CL',{weekday:'short',day:'numeric',month:'short'});
-      const diasRestantes=Math.round((e.ts-Date.now())/(24*3600*1000));
-      const badge=diasRestantes<=7?`<span style="background:#58a6ff22;color:var(--blue);border-radius:4px;padding:1px 6px;font-size:.7rem;margin-left:6px">en ${diasRestantes}d</span>`:'';
-      return `<tr style="border-bottom:1px solid var(--border)">
-        <td style="padding:9px 6px;color:var(--muted)">${fecha}${badge}</td>
-        <td style="padding:9px 6px;font-weight:700;color:var(--blue)">${e.ticker}</td>
-      </tr>`;
-    }).join('')}</tbody>
-  </table>`;
+  // Los ya reportados primero (se pueden abrir para ver resultados), después
+  // los que vienen. Cada fila es tocable.
+  const ordenados=[...data].sort((a,b)=>{
+    if(!!a.reportado!==!!b.reportado) return a.reportado?-1:1;
+    return a.reportado ? b.ts-a.ts : a.ts-b.ts;
+  });
+  el.innerHTML=ordenados.map(e=>{
+    const d=new Date(e.ts);
+    const dias=Math.round((e.ts-Date.now())/864e5);
+    const etiqueta = e.reportado
+      ? `<span style="background:var(--green-bg);color:var(--green);border-radius:5px;padding:2px 8px;font-size:.62rem;font-weight:700">RESULTADOS LISTOS</span>`
+      : dias<=7
+        ? `<span style="background:var(--blue-bg);color:var(--blue);border-radius:5px;padding:2px 8px;font-size:.62rem;font-weight:700">EN ${dias}D</span>`
+        : `<span style="font-size:.66rem;color:var(--faint)">en ${dias} días</span>`;
+    return `<div class="earn-row" onclick="openEarnings('${esc(e.ticker)}')">
+      <div class="earn-day">
+        <div class="earn-day-n">${d.getDate()}</div>
+        <div class="earn-day-m">${d.toLocaleDateString('es-CL',{month:'short'}).replace('.','')}</div>
+      </div>
+      ${logoHTML(e.ticker)}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.88rem;font-weight:700">${esc(e.ticker)}</div>
+        <div style="font-size:.7rem;color:var(--muted);margin-top:1px">${d.toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'})}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:6px">
+        ${etiqueta}
+        <svg class="ico-sm ico" style="color:var(--faint)"><use href="#i-arrow"/></svg>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── RESULTADOS DE EARNINGS ────────────────────────────────────
+function closeEarnSheet(){
+  document.getElementById('earn-sheet').classList.remove('open');
+  document.getElementById('earn-sheet-overlay').style.display='none';
+}
+
+async function openEarnings(ticker){
+  const sheet=document.getElementById('earn-sheet');
+  const overlay=document.getElementById('earn-sheet-overlay');
+  sheet.innerHTML=`
+    <div class="ideas-handle-area"><div class="ideas-handle"></div></div>
+    <div class="ideas-sheet-hdr">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          ${logoHTML(ticker)}
+          <div><div style="font-weight:700;font-size:1.05rem">${esc(ticker)}</div>
+          <div style="font-size:.72rem;color:var(--muted)">Resultados trimestrales</div></div>
+        </div>
+        <button onclick="closeEarnSheet()" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:0 0 0 14px"><svg class="ico-sm ico"><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+    <div class="ideas-sheet-body"><div class="loading"><div class="spinner"></div>Buscando resultados…</div></div>`;
+  sheet.classList.add('open');
+  overlay.style.display='block';
+
+  let d;
+  try{
+    const r=await fetch(`${API}?action=earnings_detalle&ticker=${encodeURIComponent(ticker)}&_t=${Date.now()}`,
+      {signal:AbortSignal.timeout(25000)});
+    d=await r.json();
+  }catch(e){
+    sheet.querySelector('.ideas-sheet-body').innerHTML=
+      `<div class="loading">No se pudieron cargar los resultados.</div>`;
+    return;
+  }
+
+  const T=d.trimestres||[];
+  if(!T.length){
+    sheet.querySelector('.ideas-sheet-body').innerHTML=
+      `<div class="loading" style="flex-direction:column;gap:6px;text-align:center"><span>Sin resultados publicados</span><span style="font-size:.72rem;color:var(--muted)">Yahoo no tiene historial de EPS para ${esc(ticker)}.</span></div>`;
+    return;
+  }
+
+  const u=T[0];
+  const batio = u.sorpresaPct!=null && u.sorpresaPct>=0;
+  const cU = batio?'var(--green)':'var(--red)';
+
+  // Barras comparativas de los últimos trimestres (real vs estimado)
+  const maxEps=Math.max(...T.map(t=>Math.max(Math.abs(t.epsReal||0),Math.abs(t.epsEstimado||0))))||1;
+  const barras=T.slice(0,4).reverse().map(t=>{
+    const pr=Math.max(2,Math.abs(t.epsReal||0)/maxEps*100);
+    const pe=Math.max(2,Math.abs(t.epsEstimado||0)/maxEps*100);
+    const ok=(t.sorpresaPct||0)>=0;
+    const per=t.periodo?new Date(t.periodo).toLocaleDateString('es-CL',{month:'short',year:'2-digit'}):'—';
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:.7rem;margin-bottom:3px">
+        <span style="color:var(--muted)">${per}</span>
+        <span style="font-weight:700;color:${ok?'var(--green)':'var(--red)'}">${t.sorpresaPct!=null?(t.sorpresaPct>=0?'+':'')+fmt(t.sorpresaPct,1)+'%':'—'}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+        <span style="font-size:.6rem;color:var(--faint);width:30px">real</span>
+        <div style="flex:1;height:9px;border-radius:5px;background:var(--surface2);overflow:hidden">
+          <div style="height:100%;width:${pr}%;background:${ok?'var(--green)':'var(--red)'};border-radius:5px"></div></div>
+        <span class="num" style="font-size:.7rem;font-weight:700;width:46px;text-align:right">$${fmt(t.epsReal,2)}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:.6rem;color:var(--faint);width:30px">est.</span>
+        <div style="flex:1;height:9px;border-radius:5px;background:var(--surface2);overflow:hidden">
+          <div style="height:100%;width:${pe}%;background:var(--faint);opacity:.5;border-radius:5px"></div></div>
+        <span class="num" style="font-size:.7rem;color:var(--muted);width:46px;text-align:right">$${fmt(t.epsEstimado,2)}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const ing=(d.ingresos||[]).slice(-4).reverse();
+  const tablaIng = ing.length ? `
+    <div style="font-size:.66rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 6px">Ingresos por trimestre</div>
+    ${ing.map(x=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:.8rem">
+      <span style="color:var(--muted)">${esc(x.periodo||'')}</span>
+      <span class="num" style="font-weight:600">${x.ingresos!=null?fmtBig(x.ingresos):'—'}</span></div>`).join('')}` : '';
+
+  const reaccion = d.reaccion ? `
+    <div style="margin-top:14px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+      <div style="font-size:.66rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Cómo reaccionó la acción</div>
+      <div style="font-size:1.1rem;font-weight:700;color:${d.reaccion.cambio>=0?'var(--green)':'var(--red)'}">${d.reaccion.cambio>=0?'+':''}${fmt(d.reaccion.cambio,2)}%</div>
+      <div style="font-size:.7rem;color:var(--muted);margin-top:2px">Mayor movimiento diario tras el reporte (${new Date(d.reaccion.fecha).toLocaleDateString('es-CL',{day:'numeric',month:'short'})})</div>
+    </div>` : '';
+
+  const prox = d.proximo && new Date(d.proximo).getTime() > Date.now() ? `
+    <div style="margin-top:14px;padding:12px 14px;background:var(--blue-bg);border:1px solid var(--border);border-radius:12px">
+      <div style="font-size:.66rem;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.06em">Próximo reporte</div>
+      <div style="font-size:.9rem;font-weight:700;margin-top:3px">${new Date(d.proximo).toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'})}</div>
+      ${d.epsEstimadoProximo!=null?`<div style="font-size:.74rem;color:var(--muted);margin-top:2px">EPS estimado: $${fmt(d.epsEstimadoProximo,2)}</div>`:''}
+    </div>` : '';
+
+  sheet.querySelector('.ideas-sheet-body').innerHTML=`
+    <div style="text-align:center;padding:6px 0 14px">
+      <div style="font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em">Último trimestre · ${u.periodo?new Date(u.periodo).toLocaleDateString('es-CL',{month:'long',year:'numeric'}):''}</div>
+      <div style="font-size:2.1rem;font-weight:700;color:${cU};line-height:1.15;margin-top:2px">$${fmt(u.epsReal,2)}</div>
+      <div style="font-size:.82rem;color:var(--muted)">EPS real · se esperaba $${fmt(u.epsEstimado,2)}</div>
+      <div style="display:inline-block;margin-top:8px;padding:5px 14px;border-radius:99px;background:${batio?'var(--green-bg)':'var(--red-bg)'};color:${cU};font-size:.84rem;font-weight:700">
+        ${batio?'Superó lo esperado':'Quedó bajo lo esperado'} ${u.sorpresaPct!=null?`· ${u.sorpresaPct>=0?'+':''}${fmt(u.sorpresaPct,1)}%`:''}
+      </div>
+    </div>
+    <div style="font-size:.66rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">EPS real vs estimado</div>
+    ${barras}
+    ${tablaIng}
+    ${reaccion}
+    ${prox}
+    <div style="font-size:.62rem;color:var(--faint);margin-top:14px;line-height:1.5">Datos de Yahoo Finance. La reacción es el mayor movimiento diario en las semanas posteriores al cierre del trimestre, como referencia.</div>`;
 }
 
 async function renderNoticias(){
