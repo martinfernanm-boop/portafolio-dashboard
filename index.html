@@ -424,7 +424,7 @@ body.balance-hidden #h-total,body.balance-hidden #h-gp,body.balance-hidden #h-re
 
   /* 2-col portfolio: posiciones a la izquierda, journal+heatmap a la derecha */
   #page-portfolio.active{display:grid;grid-template-columns:1fr 1fr;column-gap:4px;align-items:start;grid-auto-rows:min-content}
-  #page-portfolio .hero,#sec-perf,#sec-salud{grid-column:1/-1}
+  #page-portfolio .hero,#sec-perf,#sec-salud,#sec-dividendos{grid-column:1/-1}
   #sec-posiciones{grid-column:1;grid-row:4/span 4}
   #sec-journal,#sec-heatmap-pf{grid-column:2}
 
@@ -673,6 +673,16 @@ button:focus:not(:focus-visible){outline:none}
       <span id="salud-badge" class="badge">—</span>
     </div>
     <div class="card" id="salud-content">
+      <div class="loading"><div class="spinner"></div>Calculando…</div>
+    </div>
+  </div>
+  <div class="section" id="sec-dividendos">
+    <div class="section-header">
+      <span class="section-title"><svg class="ico-xs ico" style="color:var(--yellow)"><use href="#i-coin"/></svg> Dividendos</span>
+      <span id="div-badge" class="badge">—</span>
+    </div>
+    <div class="section-sub">Lo que te pagan tus posiciones, con el historial real de cada activo</div>
+    <div class="card" id="dividendos-content">
       <div class="loading"><div class="spinner"></div>Calculando…</div>
     </div>
   </div>
@@ -1925,6 +1935,7 @@ async function renderPortfolio(){
       .then(b => renderSalud(posiciones, resumen, b))
       .catch(() => renderSalud(posiciones, resumen, null));
     renderJournal();
+    renderDividendos();
     buildHeatmap('heatmap-pf-container');
   } catch(e){ console.error('Portfolio:',e); el.innerHTML='<div class="loading">Error al cargar posiciones.</div>'; }
 }
@@ -2882,6 +2893,64 @@ async function calcPortfolioBeta(posiciones) {
   el.textContent = fmt(beta, 2);
   el.style.color = color;
   return beta;
+}
+
+// ── DIVIDENDOS ────────────────────────────────────────────────
+// Datos REALES del historial de pagos de cada activo (el GAS los saca de
+// Yahoo y los multiplica por tu cantidad). Nada escrito a mano.
+async function renderDividendos() {
+  const el = document.getElementById('dividendos-content');
+  const badge = document.getElementById('div-badge');
+  if (!el) return;
+  let d;
+  try { d = await get('dividendos'); } catch { el.innerHTML = '<div class="loading">No se pudieron cargar los dividendos.</div>'; return; }
+  const r = d?.resumen;
+  if (!r || !r.quePagan) {
+    badge.textContent = 'Ninguno paga';
+    el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:14px">Ninguna de tus posiciones reparte dividendos.</div>';
+    return;
+  }
+
+  badge.textContent = usd(r.ingresoAnual) + '/año';
+  badge.style.color = 'var(--green)';
+
+  const cal = (d.calendario || []).slice(0, 4).map(c => {
+    const dt = new Date(c.fecha);
+    const dias = Math.round((dt - Date.now()) / 864e5);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:.78rem">
+      <span><b>${esc(c.ticker)}</b> <span style="color:var(--faint)">${dt.toLocaleDateString('es-CL',{day:'numeric',month:'short'})}${dias>=0?` · en ${dias}d`:''}</span></span>
+      <span class="num positive">~${usd(c.monto)}</span></div>`;
+  }).join('');
+
+  const filas = d.posiciones.filter(p => p.paga).map(p => `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.82rem;font-weight:600">${esc(p.ticker)}
+          <span style="font-size:.66rem;color:var(--faint);font-weight:400">${esc(p.frecuencia)}</span></div>
+        <div style="font-size:.68rem;color:var(--muted)">yield ${fmt(p.yieldTTM*100,2)}% · último ${new Date(p.ultimoPago.fecha).toLocaleDateString('es-CL',{day:'numeric',month:'short'})}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="num" style="font-size:.82rem;font-weight:700;color:var(--green)">${usd(p.anualProyectado)}</div>
+        <div style="font-size:.64rem;color:var(--faint)">al año</div>
+      </div>
+    </div>`).join('');
+
+  el.innerHTML = `
+    <div style="padding:14px 16px">
+      <div style="display:flex;gap:10px;text-align:center;margin-bottom:12px">
+        <div style="flex:1"><div style="font-size:.64rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Al año</div>
+          <div class="num" style="font-size:1.25rem;font-weight:700;color:var(--green)">${usd(r.ingresoAnual)}</div></div>
+        <div style="flex:1;border-left:1px solid var(--border);border-right:1px solid var(--border)">
+          <div style="font-size:.64rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Al mes</div>
+          <div class="num" style="font-size:1.25rem;font-weight:700">${usd(r.ingresoMensual)}</div></div>
+        <div style="flex:1"><div style="font-size:.64rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Yield</div>
+          <div class="num" style="font-size:1.25rem;font-weight:700">${fmt(r.yieldPortafolio*100,2)}%</div></div>
+      </div>
+      ${cal ? `<div style="font-size:.66rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:4px 0 2px">Próximos pagos estimados</div>${cal}` : ''}
+      <div style="font-size:.66rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 2px">Por posición</div>
+      ${filas}
+      <div style="font-size:.64rem;color:var(--faint);margin-top:10px;line-height:1.5">Estimado con los pagos de los últimos 12 meses y tu cantidad actual. Las fechas futuras se proyectan según la frecuencia histórica.</div>
+    </div>`;
 }
 
 // ── SALUD DEL PORTAFOLIO ──────────────────────────────────────
